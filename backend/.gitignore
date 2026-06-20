@@ -1,0 +1,10 @@
+# Virtual environment
+venv/
+
+# Environment variables containing sensitive credentials
+.env
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
