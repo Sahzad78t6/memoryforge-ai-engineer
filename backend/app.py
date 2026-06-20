@@ -118,7 +118,8 @@ async def register(user_data: UserRegister):
             "name": user_data.name,
             "email": user_data.email,
             "password": hashed_pwd,
-            "role": user_data.role.upper() if user_data.role else "USER"
+            "role": user_data.role.upper() if user_data.role else "USER",
+            "created_at": datetime.utcnow()
         }
         
         # Saving user

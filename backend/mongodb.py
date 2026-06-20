@@ -143,19 +143,15 @@ def init_db():
 
     try:
         # Attempt to establish real MongoDB Client connection
-        logger.info(f"Connecting to MongoDB at: {config.MONGODB_URI}")
+        db_name = getattr(config, "MONGODB_DB_NAME", None) or "memoryforge"
+        logger.info(f"Connecting to MongoDB at: {config.MONGODB_URI} using database '{db_name}'")
         client = MongoClient(config.MONGODB_URI, serverSelectionTimeoutMS=3000)
         # Ping the server to check connectivity
         client.admin.command('ping')
-        try:
-            db = client.get_default_database()
-            if db is None:
-                db = client.get_database("test")
-        except Exception:
-            db = client.get_database("test")
+        db = client[db_name]
         is_fallback = False
-        logger.info("[MONGODB CONNECTED] Successfully connected to MongoDB Atlas.")
-        print("[MONGODB CONNECTED] Successfully connected to MongoDB Atlas.")
+        logger.info(f"[MONGODB CONNECTED] Successfully connected to MongoDB Atlas database '{db_name}'.")
+        print(f"[MONGODB CONNECTED] Successfully connected to MongoDB Atlas database '{db_name}'.")
         seed_db()
     except Exception as e:
         logger.warning(f"[MONGODB FALLBACK ACTIVE] Connection failed: {str(e)}. Falling back to in-memory database.")

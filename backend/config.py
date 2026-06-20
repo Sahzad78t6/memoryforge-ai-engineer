@@ -1,13 +1,17 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+
+# Load environment variables from the backend/.env file regardless of where the app is started from.
+load_dotenv(BASE_DIR / ".env")
 
 # Extract key configuration values
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 PARCLE_API_KEY = os.getenv("PARCLE_API_KEY")
 MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "memoryforge")
 JWT_SECRET = os.getenv("JWT_SECRET", "memoryforge-super-secret-key-1234567890")
 
 
