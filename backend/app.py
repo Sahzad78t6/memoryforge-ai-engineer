@@ -8,7 +8,7 @@ import logging
 
 from models import ChatRequest, ChatResponse, MemoryItem, MemoriesResponse
 from agent import process_message
-from memory import get_all_memories
+from memory import get_all_memories, save_memory
 from typing import List
 
 # Set up logging configuration
@@ -60,6 +60,17 @@ async def memories():
         return MemoriesResponse(count=len(items), memories=items)
     except Exception as e:
         logger.error(f"Failed to fetch memories: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/memories", response_model=MemoryItem)
+async def create_memory(memory: MemoryItem):
+    """
+    Creates/saves a memory category tag and content.
+    """
+    try:
+        return save_memory(memory.type, memory.content)
+    except Exception as e:
+        logger.error(f"Failed to create memory: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat", response_model=ChatResponse)

@@ -39,4 +39,14 @@ export const getMemories = async () => {
   }
 };
 
+export const createMemory = async (type, content) => {
+  try {
+    const response = await api.post('/memories', { type, content });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (createMemory):', error);
+    throw error;
+  }
+};
+
 export default api;
