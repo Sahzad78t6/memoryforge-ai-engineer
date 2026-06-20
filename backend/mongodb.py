@@ -147,9 +147,9 @@ def init_db():
         try:
             db = client.get_default_database()
             if db is None:
-                db = client.get_database("memoryforge")
+                db = client.get_database("test")
         except Exception:
-            db = client.get_database("memoryforge")
+            db = client.get_database("test")
         is_fallback = False
         logger.info("[MONGODB CONNECTED] Successfully connected to MongoDB Atlas.")
         print("[MONGODB CONNECTED] Successfully connected to MongoDB Atlas.")
