@@ -23,3 +23,10 @@ class ChatResponse(BaseModel):
         default_factory=list,
         description="The relevant memory items used to contextualize the agent's response"
     )
+
+class MemoriesResponse(BaseModel):
+    """
+    Schema for memories retrieval endpoint.
+    """
+    count: int = Field(..., description="The total number of memory items retrieved")
+    memories: List[MemoryItem] = Field(default_factory=list, description="List of memory items")

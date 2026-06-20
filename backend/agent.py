@@ -19,8 +19,8 @@ def process_message(message: str) -> Tuple[str, List[MemoryItem]]:
     reply = generate_response(message, relevant_memories)
     
     # Step 4: Save the conversation interaction back to memory for future persistence
-    interaction_summary = f"User asked for: '{message}' -> AI responded with: '{reply[:200]}...'"
-    save_memory(memory_type="interaction", content=interaction_summary)
+    interaction_summary = f"User query: '{message}' | Response: '{reply}'"
+    save_memory(memory_type="conversation", content=interaction_summary)
     
     # Return the reply text and memory context
     return reply, relevant_memories

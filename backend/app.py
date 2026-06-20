@@ -6,8 +6,10 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-from models import ChatRequest, ChatResponse
+from models import ChatRequest, ChatResponse, MemoryItem, MemoriesResponse
 from agent import process_message
+from memory import get_all_memories
+from typing import List
 
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +49,18 @@ async def health():
         "status": "ok",
         "service": "MemoryForge AI Engineer"
     }
+
+@app.get("/memories", response_model=MemoriesResponse)
+async def memories():
+    """
+    Retrieves all persistent memories from Parcle (or local fallback store).
+    """
+    try:
+        items = get_all_memories()
+        return MemoriesResponse(count=len(items), memories=items)
+    except Exception as e:
+        logger.error(f"Failed to fetch memories: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
