@@ -160,38 +160,6 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {/* Role Field for Register */}
-          {!isLogin && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                Workspace Role
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setRole('USER')}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-                    role === 'USER'
-                      ? 'bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow shadow-indigo-500/10'
-                      : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  Regular User
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('ADMIN')}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-                    role === 'ADMIN'
-                      ? 'bg-violet-500/10 border-violet-500 text-violet-300 shadow shadow-violet-500/10'
-                      : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  Administrator
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Submit Button */}
           <button

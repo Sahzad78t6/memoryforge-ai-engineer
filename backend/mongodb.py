@@ -7,6 +7,38 @@ import bcrypt
 
 logger = logging.getLogger("memoryforge_backend")
 
+class MockCursor:
+    def __init__(self, data: List[Dict[str, Any]]):
+        self.data = data
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def sort(self, key_or_list, direction=None):
+        key = key_or_list
+        reverse = False
+        if isinstance(key_or_list, list):
+            if key_or_list:
+                key, direction = key_or_list[0]
+        if direction == -1:
+            reverse = True
+        try:
+            from datetime import datetime
+            self.data.sort(key=lambda x: x.get(key) if x.get(key) is not None else datetime.min, reverse=reverse)
+        except Exception:
+            self.data.sort(key=lambda x: str(x.get(key, '')), reverse=reverse)
+        return self
+
+    def limit(self, n: int):
+        self.data = self.data[:n]
+        return self
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        return self.data[index]
+
 class MockCollection:
     def __init__(self, name: str):
         self.name = name
@@ -23,9 +55,9 @@ class MockCollection:
                 return dict(item)
         return None
 
-    def find(self, query: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+    def find(self, query: Dict[str, Any] = None) -> MockCursor:
         if not query:
-            return [dict(item) for item in self.data]
+            return MockCursor([dict(item) for item in self.data])
         results = []
         for item in self.data:
             match = True
@@ -35,7 +67,8 @@ class MockCollection:
                     break
             if match:
                 results.append(dict(item))
-        return results
+        return MockCursor(results)
+
 
     def insert_one(self, document: Dict[str, Any]) -> Any:
         doc = dict(document)
