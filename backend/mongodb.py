@@ -144,7 +144,12 @@ def init_db():
         client = MongoClient(config.MONGODB_URI, serverSelectionTimeoutMS=3000)
         # Ping the server to check connectivity
         client.admin.command('ping')
-        db = client.get_database("memoryforge")
+        try:
+            db = client.get_default_database()
+            if db is None:
+                db = client.get_database("memoryforge")
+        except Exception:
+            db = client.get_database("memoryforge")
         is_fallback = False
         logger.info("[MONGODB CONNECTED] Successfully connected to MongoDB Atlas.")
         print("[MONGODB CONNECTED] Successfully connected to MongoDB Atlas.")
