@@ -149,3 +149,28 @@ def list_all_parcle_memories(user_id: str, max_retries: int = 3) -> List[MemoryI
                     delay *= 2
                     
     return memories
+
+def ingest_file_to_parcle(user_id: str, filename: str, content_bytes: bytes, content_type: str, max_retries: int = 3) -> bool:
+    """
+    Ingests a document file (PDF, TXT, MD, README) into Parcle memory for semantic search.
+    """
+    client = get_client()
+    delay = 1.0
+    
+    for attempt in range(max_retries):
+        try:
+            client.ingest_file(
+                user_id=user_id,
+                file=(filename, content_bytes, content_type),
+                tag={"type": "document", "filename": filename}
+            )
+            return True
+        except Exception as e:
+            if attempt == max_retries - 1:
+                logger.error(f"Failed to ingest file {filename} to Parcle after {max_retries} attempts: {str(e)}")
+                raise e
+            time.sleep(delay)
+            delay *= 2
+            
+    return False
+

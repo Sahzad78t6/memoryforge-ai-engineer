@@ -7,6 +7,9 @@ load_dotenv()
 # Extract key configuration values
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 PARCLE_API_KEY = os.getenv("PARCLE_API_KEY")
+MONGODB_URI = os.getenv("MONGODB_URI")
+JWT_SECRET = os.getenv("JWT_SECRET", "memoryforge-super-secret-key-1234567890")
+
 
 def validate_config() -> None:
     """

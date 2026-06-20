@@ -2,6 +2,8 @@ import logging
 from typing import List
 from models import MemoryItem
 import parcle_client
+from datetime import datetime
+import mongodb
 
 logger = logging.getLogger("memoryforge_backend")
 
@@ -16,11 +18,23 @@ DEFAULT_USER_ID = "default_user"
 
 def save_memory(memory_type: str, content: str, user_id: str = DEFAULT_USER_ID) -> MemoryItem:
     """
-    Attempts to save a memory block to the Parcle service.
-    If the service encounters a downtime or verification error, triggers a fallback save to the local memory store.
+    Attempts to save a memory block to MongoDB Atlas and the Parcle service.
     """
     item = MemoryItem(type=memory_type, content=content)
     
+    # 1. Save to MongoDB Atlas collection 'memories'
+    try:
+        mongodb.db.memories.insert_one({
+            "type": memory_type,
+            "content": content,
+            "user_id": user_id,
+            "timestamp": datetime.utcnow()
+        })
+        logger.info(f"[MONGODB SAVED] Saved memory to database: {memory_type}")
+    except Exception as db_err:
+        logger.error(f"Failed to save memory to MongoDB: {str(db_err)}")
+        
+    # 2. Save to Parcle primary save
     try:
         # Try Parcle primary save
         parcle_client.save_to_parcle(user_id, memory_type, content)
@@ -40,25 +54,58 @@ def save_memory(memory_type: str, content: str, user_id: str = DEFAULT_USER_ID) 
 def search_memory(query: str, user_id: str = DEFAULT_USER_ID) -> List[MemoryItem]:
     """
     Queries memory records matching the query string.
-    Attempts Parcle vector indexing first, falling back to case-insensitive local keyword matcher.
+    Attempts Parcle vector indexing first, falling back to database search, then local keyword matcher.
     """
     print(f"[MEMORY SEARCH] Query: {query}")
     logger.info(f"[MEMORY SEARCH] Query: {query}")
     
+    # Increment query topic tracking in analytics
+    try:
+        if query:
+            mongodb.increment_topic_query(query[:50])
+    except Exception as ae:
+        logger.error(f"Failed to update query metrics: {str(ae)}")
+        
     try:
         # Try Parcle primary search
         results = parcle_client.search_in_parcle(user_id, query)
         print(f"[MEMORY RETRIEVED] Retrieved {len(results)} memories from Parcle.")
         logger.info(f"[MEMORY RETRIEVED] Retrieved {len(results)} memories from Parcle.")
+        
+        # Increment retrieval count in analytics
+        try:
+            if results:
+                mongodb.increment_retrieval_count(len(results))
+        except Exception:
+            pass
+            
         return results
     except Exception as e:
-        # Fallback to keyword-based search on the local DB
-        print(f"[PARCLE FALLBACK ACTIVE] Falling back to local search due to error: {str(e)}")
-        logger.warning(f"[PARCLE FALLBACK ACTIVE] Falling back to local search due to error: {str(e)}")
+        # Fallback to MongoDB search or local in-memory DB
+        print(f"[PARCLE FALLBACK ACTIVE] Falling back to database search due to error: {str(e)}")
+        logger.warning(f"[PARCLE FALLBACK ACTIVE] Falling back to database search due to error: {str(e)}")
         
         if not query:
             return []
             
+        # Try to search MongoDB memories first
+        try:
+            query_regex = {"$regex": query, "$options": "i"}
+            db_results = mongodb.db.memories.find({
+                "user_id": user_id,
+                "$or": [
+                    {"content": query_regex},
+                    {"type": query_regex}
+                ]
+            })
+            results = [MemoryItem(type=doc["type"], content=doc["content"]) for doc in db_results]
+            if results:
+                print(f"[MEMORY RETRIEVED] (MongoDB Fallback) Retrieved {len(results)} memories.")
+                return results
+        except Exception as db_err:
+            logger.error(f"MongoDB search fallback failed: {str(db_err)}")
+            
+        # Hard fallback to in-memory list
         query_lower = query.lower()
         query_words = set(query_lower.split())
         results = []
@@ -78,8 +125,17 @@ def search_memory(query: str, user_id: str = DEFAULT_USER_ID) -> List[MemoryItem
 
 def get_all_memories(user_id: str = DEFAULT_USER_ID) -> List[MemoryItem]:
     """
-    Fetches all recorded memory records from Parcle or local database fallback.
+    Fetches all recorded memory records from MongoDB, Parcle or local database fallback.
     """
+    # Try querying MongoDB memories first
+    try:
+        db_memories = mongodb.db.memories.find({"user_id": user_id})
+        results = [MemoryItem(type=doc["type"], content=doc["content"]) for doc in db_memories]
+        if results:
+            return results
+    except Exception as db_err:
+        logger.error(f"Failed to fetch memories from MongoDB: {str(db_err)}")
+
     try:
         # Try Parcle primary fetch
         results = parcle_client.list_all_parcle_memories(user_id)
@@ -88,3 +144,4 @@ def get_all_memories(user_id: str = DEFAULT_USER_ID) -> List[MemoryItem]:
         print(f"[PARCLE FALLBACK ACTIVE] Falling back to local list due to error: {str(e)}")
         logger.warning(f"[PARCLE FALLBACK ACTIVE] Falling back to local list due to error: {str(e)}")
         return list(_memories_db)
+

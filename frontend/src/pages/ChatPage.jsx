@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ChatWindow from '../components/ChatWindow';
 import MemoryPanel from '../components/MemoryPanel';
-import { sendChatMessage, getHealth, createMemory, getMemories, API_BASE_URL } from '../services/api';
+import { sendChatMessage, getHealth, createMemory, getMemories, getChatHistory, API_BASE_URL } from '../services/api';
 import { Send, AlertCircle, RefreshCw, Cpu, Database, Play, Sparkles, Check, Info } from 'lucide-react';
 
 const ChatPage = () => {
@@ -17,7 +17,7 @@ const ChatPage = () => {
   const [storedCount, setStoredCount] = useState(0);
   const [retrievedCount, setRetrievedCount] = useState(0);
 
-  // Check health and count stored memories
+  // Check health, count stored memories, and fetch chat history from DB
   const loadInitialData = async () => {
     try {
       setBackendStatus('checking');
@@ -26,6 +26,21 @@ const ChatPage = () => {
       
       const mems = await getMemories();
       setStoredCount(mems.count || 0);
+
+      // Load chat logs from MongoDB Atlas
+      try {
+        const history = await getChatHistory();
+        if (history && history.length > 0) {
+          const formattedHistory = [];
+          history.forEach(h => {
+            formattedHistory.push({ role: 'user', content: h.message });
+            formattedHistory.push({ role: 'assistant', content: h.reply });
+          });
+          setMessages(formattedHistory);
+        }
+      } catch (historyErr) {
+        console.error('Failed to load chat history:', historyErr);
+      }
     } catch (e) {
       setBackendStatus('offline');
     }
@@ -34,6 +49,7 @@ const ChatPage = () => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
 
   const handleSend = async (messageText) => {
     if (!messageText.trim() || loading) return;

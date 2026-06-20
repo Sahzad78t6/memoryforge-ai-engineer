@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 class MemoryItem(BaseModel):
     """
@@ -30,3 +30,34 @@ class MemoriesResponse(BaseModel):
     """
     count: int = Field(..., description="The total number of memory items retrieved")
     memories: List[MemoryItem] = Field(default_factory=list, description="List of memory items")
+
+class UserRegister(BaseModel):
+    name: str = Field(..., min_length=2, max_length=50)
+    email: str = Field(..., description="Email address")
+    password: str = Field(..., min_length=6)
+    role: str = Field(default="USER", description="Role of the user (USER or ADMIN)")
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+class KnowledgeItem(BaseModel):
+    id: Optional[str] = Field(None, description="The string ID of the knowledge record")
+    title: str = Field(..., description="Title of the knowledge document")
+    content: str = Field(..., description="Detailed text content")
+
+class KnowledgeResponse(BaseModel):
+    count: int = Field(..., description="Total count of knowledge entries")
+    knowledge: List[KnowledgeItem] = Field(default_factory=list, description="List of knowledge base entries")
+
