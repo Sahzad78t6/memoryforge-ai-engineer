@@ -92,27 +92,61 @@ async def register(user_data: UserRegister):
     """
     Registers a new user (USER or ADMIN) and hashes their password.
     """
-    existing_user = mongodb.db.users.find_one({"email": user_data.email})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email is already registered.")
-    
-    hashed_pwd = auth.hash_password(user_data.password)
-    user_doc = {
-        "name": user_data.name,
-        "email": user_data.email,
-        "password": hashed_pwd,
-        "role": user_data.role.upper() if user_data.role else "USER"
-    }
-    
-    result = mongodb.db.users.insert_one(user_doc)
-    user_id = str(result.inserted_id)
-    
-    return UserResponse(
-        id=user_id,
-        name=user_doc["name"],
-        email=user_doc["email"],
-        role=user_doc["role"]
-    )
+    logger.info("[REGISTER REQUEST] Incoming registration request received.")
+    try:
+        # Request body log
+        logger.info(f"[REQUEST BODY] Name: {user_data.name}, Email: {user_data.email}, Role: {user_data.role}")
+        
+        # Pydantic validation passed (FastAPI did this on entry)
+        logger.info("[VALIDATION PASSED] Request data successfully validated against Pydantic schema.")
+        
+        # User exists check
+        logger.info(f"[USER EXISTS CHECK] Checking if user with email {user_data.email} exists.")
+        
+        db_name = getattr(mongodb.db, "name", "mock_db")
+        collection_name = "users"
+        logger.info(f"Database name: {db_name}")
+        logger.info(f"Collection name: {collection_name}")
+        
+        existing_user = mongodb.db.users.find_one({"email": user_data.email})
+        if existing_user:
+            logger.warning(f"[REGISTER ERROR] Email {user_data.email} is already registered.")
+            raise HTTPException(status_code=400, detail="Email is already registered.")
+        
+        hashed_pwd = auth.hash_password(user_data.password)
+        user_doc = {
+            "name": user_data.name,
+            "email": user_data.email,
+            "password": hashed_pwd,
+            "role": user_data.role.upper() if user_data.role else "USER"
+        }
+        
+        # Saving user
+        logger.info(f"[SAVING USER] Inserting document for {user_doc['email']} into collection '{collection_name}' in database '{db_name}'.")
+        result = mongodb.db.users.insert_one(user_doc)
+        user_id = str(result.inserted_id)
+        logger.info(f"Insert result inserted_id: {user_id}")
+        logger.info("[USER SAVED] Successfully saved user to database.")
+        
+        # Query MongoDB immediately and verify the user exists
+        logger.info(f"[VERIFICATION] Querying database immediately for {user_doc['email']} to verify persistence.")
+        verified_user = mongodb.db.users.find_one({"email": user_doc["email"]})
+        if verified_user:
+            logger.info(f"[VERIFICATION SUCCESS] User verified in database. Document ID: {verified_user.get('_id')}")
+        else:
+            logger.error(f"[VERIFICATION FAILED] User {user_doc['email']} could NOT be retrieved immediately after saving.")
+            
+        return UserResponse(
+            id=user_id,
+            name=user_doc["name"],
+            email=user_doc["email"],
+            role=user_doc["role"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[REGISTER ERROR] Exception during registration: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 @app.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
