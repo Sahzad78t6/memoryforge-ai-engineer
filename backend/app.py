@@ -208,7 +208,7 @@ async def memories(current_user: Optional[dict] = Depends(get_optional_user)):
     """
     Retrieves all persistent memories from MongoDB / Parcle.
     """
-    user_id = current_user["email"] if current_user else "default_user"
+    user_id = str(current_user["_id"]) if current_user else "default_user"
     try:
         items = get_all_memories(user_id=user_id)
         return MemoriesResponse(count=len(items), memories=items)
@@ -221,7 +221,7 @@ async def create_memory(memory: MemoryItem, current_user: Optional[dict] = Depen
     """
     Saves a memory in both MongoDB and Parcle under the caller's space.
     """
-    user_id = current_user["email"] if current_user else "default_user"
+    user_id = str(current_user["_id"]) if current_user else "default_user"
     try:
         return save_memory(memory.type, memory.content, user_id=user_id)
     except Exception as e:
@@ -235,7 +235,7 @@ async def create_knowledge(item: KnowledgeItem, current_user: Optional[dict] = D
     """
     Adds a knowledge record in MongoDB Atlas and optionally registers search vectors in Parcle.
     """
-    user_id = current_user["email"] if current_user else "default_user"
+    user_id = str(current_user["_id"]) if current_user else "default_user"
     try:
         knowledge_doc = {
             "title": item.title,
@@ -262,7 +262,7 @@ async def list_knowledge(current_user: Optional[dict] = Depends(get_optional_use
     """
     Lists knowledge documents.
     """
-    user_id = current_user["email"] if current_user else "default_user"
+    user_id = str(current_user["_id"]) if current_user else "default_user"
     try:
         db_items = mongodb.db.knowledge_base.find({"user_id": user_id})
         knowledge = []
@@ -287,7 +287,7 @@ async def upload_document(
     """
     Uploads a txt, md, readme, pdf document, saves metadata in Atlas and indexes into Parcle memory.
     """
-    user_id = current_user["email"] if current_user else "default_user"
+    user_id = str(current_user["_id"]) if current_user else "default_user"
     try:
         content_bytes = await file.read()
         filename = file.filename
@@ -348,7 +348,7 @@ async def chat(request: ChatRequest, current_user: Optional[dict] = Depends(get_
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message content cannot be empty.")
         
-    user_id = current_user["email"] if current_user else "default_user"
+    user_id = str(current_user["_id"]) if current_user else "default_user"
     try:
         # Search relevant memory context (which triggers analytics tracking)
         relevant_memories = search_memory(request.message, user_id=user_id)
@@ -382,7 +382,7 @@ async def chat_history(current_user: Optional[dict] = Depends(get_optional_user)
     """
     Retrieves previous dialogue history from MongoDB Atlas.
     """
-    user_id = current_user["email"] if current_user else "default_user"
+    user_id = str(current_user["_id"]) if current_user else "default_user"
     try:
         cursor = mongodb.db.chat_history.find({"user_id": user_id}).sort("timestamp", 1)
         history = []

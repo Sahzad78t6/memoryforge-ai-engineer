@@ -37,11 +37,24 @@ def get_client() -> Parcle:
             
     return _client
 
+def ensure_user_exists(user_id: str) -> None:
+    """
+    Guarantees that the specified user_id is created in the Parcle system.
+    """
+    client = get_client()
+    try:
+        client.create_user(user_id=user_id)
+        logger.info(f"Successfully ensured / created Parcle user: {user_id}")
+    except Exception:
+        # Ignore errors (e.g. 409 Conflict if user already exists)
+        pass
+
 def save_to_parcle(user_id: str, memory_type: str, content: str, max_retries: int = 3) -> bool:
     """
     Appends a new memory record to Parcle with type tag category.
     Implements simple exponential backoff for resilience against transient errors.
     """
+    ensure_user_exists(user_id)
     client = get_client()
     delay = 1.0
     
@@ -66,6 +79,7 @@ def search_in_parcle(user_id: str, query: str, max_retries: int = 3) -> List[Mem
     """
     Queries Parcle memory vector index and maps Citations to original memory categories.
     """
+    ensure_user_exists(user_id)
     client = get_client()
     delay = 1.0
     search_result = None
@@ -113,6 +127,7 @@ def list_all_parcle_memories(user_id: str, max_retries: int = 3) -> List[MemoryI
     """
     Gathers all recorded dialog sessions from Parcle and converts them into MemoryItems.
     """
+    ensure_user_exists(user_id)
     client = get_client()
     delay = 1.0
     sources_page = None
@@ -154,6 +169,7 @@ def ingest_file_to_parcle(user_id: str, filename: str, content_bytes: bytes, con
     """
     Ingests a document file (PDF, TXT, MD, README) into Parcle memory for semantic search.
     """
+    ensure_user_exists(user_id)
     client = get_client()
     delay = 1.0
     
