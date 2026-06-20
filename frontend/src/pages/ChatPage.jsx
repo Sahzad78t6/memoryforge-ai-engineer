@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ChatWindow from '../components/ChatWindow';
 import MemoryPanel from '../components/MemoryPanel';
-import { sendChatMessage, getHealth, createMemory, getMemories } from '../services/api';
+import { sendChatMessage, getHealth, createMemory, getMemories, API_BASE_URL } from '../services/api';
 import { Send, AlertCircle, RefreshCw, Cpu, Database, Play, Sparkles, Check, Info } from 'lucide-react';
 
 const ChatPage = () => {
@@ -132,7 +132,7 @@ const ChatPage = () => {
         <div className="flex items-center justify-between bg-red-500/10 border-b border-red-500/20 px-4 py-2 text-xs font-medium text-red-400">
           <div className="flex items-center gap-2">
             <AlertCircle size={14} />
-            <span>Unable to connect to MemoryForge backend on http://localhost:8000.</span>
+            <span>Unable to connect to MemoryForge backend on {API_BASE_URL}.</span>
           </div>
           <button
             onClick={loadInitialData}
