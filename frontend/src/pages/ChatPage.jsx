@@ -24,7 +24,8 @@ import {
   Info,
   Plus,
   Mic,
-  ArrowUp
+  ArrowUp,
+  X
 } from 'lucide-react';
 
 const ChatPage = () => {
@@ -42,17 +43,21 @@ const ChatPage = () => {
 
   // File Upload Reference & Handler
   const fileInputRef = useRef(null);
+  const [stagedFile, setStagedFile] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const handleFileUploadChange = async (e) => {
     if (!e.target.files || !e.target.files[0]) return;
     const file = e.target.files[0];
     
-    // Add user placeholder message
-    setMessages((prev) => [...prev, { role: 'user', content: `📁 Uploaded file: **${file.name}**` }]);
-    setLoading(true);
-
-    // Add assistant processing placeholder message
-    setMessages((prev) => [...prev, { role: 'assistant', content: `⏳ Ingesting and analyzing "${file.name}"...` }]);
+    // Stage file in state as uploading
+    setStagedFile({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      status: 'uploading'
+    });
+    setUploadingFile(true);
 
     try {
       const ext = file.name.split('.').pop().toLowerCase();
@@ -65,80 +70,33 @@ const ChatPage = () => {
         response = await uploadFileDoc(file);
       }
 
-      // Format the AI's analysis response
-      const analysis = response.analysis || {};
-      const summary = analysis.summary || "No summary provided.";
-      const technologies = analysis.technologies?.length > 0 ? analysis.technologies.join(', ') : "None identified";
-      const dependencies = analysis.dependencies?.length > 0 
-        ? analysis.dependencies.map(d => typeof d === 'object' ? `${d.name} (${d.version || 'any'})` : d).join(', ')
-        : "None identified";
-      const architecture = analysis.architecture || "Standard";
-      const decisions = analysis.decisions?.length > 0 
-        ? analysis.decisions.map((d, i) => `\n${i+1}. ${d}`).join('') 
-        : "None cataloged";
-      const security = analysis.security_findings?.length > 0 
-        ? analysis.security_findings.map(s => `\n⚠️ ${s}`).join('')
-        : "✅ No threats detected";
-      const memories = analysis.memories?.length > 0
-        ? analysis.memories.map(m => `\n🧠 *[${m.type}]* ${m.content}`).join('')
-        : "None generated";
-
-      const formattedReply = 
-`📄 **File Ingested: ${file.name}**
-
-**AI Summary:**
-${summary}
-
-🛠️ **Technologies:** ${technologies}
-📦 **Dependencies:** ${dependencies}
-🏗️ **Architecture:** ${architecture}
-
-📐 **Technical Decisions:**
-${decisions}
-
-🔒 **Security Findings:**
-${security}
-
-🧠 **Memories Generated:**
-${memories}`;
-
-      // Update the assistant message with the formatted reply
-      setMessages((prev) => {
-        const next = [...prev];
-        for (let i = next.length - 1; i >= 0; i--) {
-          if (next[i].role === 'assistant' && next[i].content.includes('Ingesting and analyzing')) {
-            next[i] = { role: 'assistant', content: formattedReply };
-            break;
-          }
-        }
-        return next;
+      // Staged successfully
+      setStagedFile({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: 'ready',
+        fileId: response.file_id,
+        analysis: response.analysis,
+        summary: response.analysis?.summary || 'No summary available.'
       });
 
-      // Refresh memory list count and layout
+      // Refresh total count metrics
       const mems = await getMemories();
       setStoredCount(mems.count || 0);
-
-      // Trigger chat history load or update memory panels
-      if (response.memories_created_count > 0) {
-        const latest = await getMemories();
-        setLatestMemories(latest.memories?.slice(-5) || []);
-      }
     } catch (error) {
-      console.error('File upload error in chat page:', error);
-      const errMsg = error.response?.data?.detail || 'Unexpected error occurred during file ingestion.';
-      setMessages((prev) => {
-        const next = [...prev];
-        for (let i = next.length - 1; i >= 0; i--) {
-          if (next[i].role === 'assistant' && next[i].content.includes('Ingesting and analyzing')) {
-            next[i] = { role: 'assistant', content: `❌ **Failed to ingest "${file.name}":** ${errMsg}` };
-            break;
-          }
-        }
-        return next;
+      console.error('Staging file upload failed:', error);
+      const errMsg = error.response?.data?.detail || 'Ingestion failed.';
+      setStagedFile({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: 'error',
+        error: errMsg
       });
     } finally {
-      setLoading(false);
-      e.target.value = null;
+      setUploadingFile(false);
+      e.target.value = null; // Reset file input
     }
   };
 
@@ -176,11 +134,13 @@ ${memories}`;
   }, []);
 
 
-  const handleSend = async (messageText) => {
+  const handleSend = async (messageText, displayText) => {
     if (!messageText.trim() || loading) return;
 
+    const displayMsg = displayText || messageText;
+
     // Stage user message
-    setMessages((prev) => [...prev, { role: 'user', content: messageText }]);
+    setMessages((prev) => [...prev, { role: 'user', content: displayMsg }]);
     setLoading(true);
 
     try {
@@ -218,10 +178,51 @@ ${memories}`;
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    const query = input;
+    if (!input.trim() && !stagedFile) return;
+
+    let queryToSend = input;
+    let displayMessageText = input;
+
+    if (stagedFile) {
+      if (stagedFile.status !== 'ready') {
+        alert("Please wait for the file to finish uploading before sending.");
+        return;
+      }
+      
+      // Build detailed prompt payload context
+      const summary = stagedFile.summary;
+      const technologies = stagedFile.analysis?.technologies?.length > 0 ? stagedFile.analysis.technologies.join(', ') : "None identified";
+      const dependencies = stagedFile.analysis?.dependencies?.length > 0 
+        ? stagedFile.analysis.dependencies.map(d => typeof d === 'object' ? `${d.name} (${d.version || 'any'})` : d).join(', ')
+        : "None identified";
+      const architecture = stagedFile.analysis?.architecture || "Standard";
+      const decisions = stagedFile.analysis?.decisions?.length > 0 
+        ? stagedFile.analysis.decisions.map((d, i) => `\n${i+1}. ${d}`).join('') 
+        : "None cataloged";
+      const security = stagedFile.analysis?.security_findings?.length > 0 
+        ? stagedFile.analysis.security_findings.map(s => `\n⚠️ ${s}`).join('')
+        : "✅ No threats detected";
+      const memories = stagedFile.analysis?.memories?.length > 0
+        ? stagedFile.analysis.memories.map(m => `\n🧠 *[${m.type}]* ${m.content}`).join('')
+        : "None generated";
+
+      queryToSend = `[Context from file: ${stagedFile.name}
+Summary: ${summary}
+Technologies: ${technologies}
+Dependencies: ${dependencies}
+Architecture: ${architecture}
+Decisions: ${decisions}
+Security findings: ${security}
+Memories generated: ${memories}]
+
+User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
+
+      displayMessageText = `📁 Attached: **${stagedFile.name}**\n\n${input.trim() || 'Please analyze this ingested asset.'}`;
+    }
+
     setInput('');
-    handleSend(query);
+    setStagedFile(null); // Clear staged thumbnail
+    handleSend(queryToSend, displayMessageText);
   };
 
   // Demo Seeder
@@ -338,74 +339,121 @@ ${memories}`;
           {/* Form Input Footer */}
           <div className="border-t border-slate-900 bg-slate-950/40 p-4 shrink-0">
             <form onSubmit={handleFormSubmit} className="mx-auto max-w-4xl">
-              <div className="relative flex items-center rounded-full bg-[#212121] border border-transparent focus-within:border-slate-800/80 px-4 py-2 transition-all">
-                {/* File Upload Trigger */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={loading || backendStatus === 'offline'}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer shrink-0 mr-1"
-                  title="Upload and ingest files/code/projects"
-                >
-                  <Plus size={18} />
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUploadChange}
-                  style={{ display: 'none' }}
-                  accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README"
-                />
-
-                {/* Main Prompt Input */}
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  disabled={loading || backendStatus === 'offline'}
-                  placeholder={
-                    backendStatus === 'offline'
-                      ? 'Reconnect to backend to send prompts...'
-                      : 'Ask anything'
-                  }
-                  className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-[#8e8e8e] focus:outline-none disabled:opacity-50"
-                />
+              <div className="relative flex flex-col rounded-3xl bg-[#212121] border border-transparent focus-within:border-slate-800/80 p-3 transition-all">
                 
-                {/* Voice & Submit Actions */}
-                <div className="flex items-center gap-1 shrink-0">
+                {/* Staged File Thumbnail Row (visible if a file is staged) */}
+                {stagedFile && (
+                  <div className="flex px-2 mb-3">
+                    <div className="relative w-14 h-14 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col items-center justify-center overflow-hidden">
+                      {stagedFile.status === 'uploading' ? (
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          <div className="w-5 h-5 rounded-full border-2 border-slate-600 border-t-white animate-spin" />
+                        </div>
+                      ) : stagedFile.status === 'error' ? (
+                        <div className="flex items-center justify-center text-rose-500">
+                          <AlertCircle size={20} />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center">
+                          {stagedFile.type?.startsWith('image/') ? (
+                            <Image size={18} className="text-emerald-400" />
+                          ) : stagedFile.name?.endsWith('.zip') ? (
+                            <FolderArchive size={18} className="text-violet-400" />
+                          ) : (
+                            <FileText size={18} className="text-blue-400" />
+                          )}
+                          <span className="text-[8px] text-slate-400 font-medium truncate max-w-[48px] mt-1 px-1">
+                            {stagedFile.name}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Close button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStagedFile(null);
+                          setUploadingFile(false);
+                        }}
+                        className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-slate-455 hover:text-white cursor-pointer z-20 transition-all shadow-md"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input Controls Row */}
+                <div className="flex items-center">
+                  {/* File Upload Trigger */}
                   <button
                     type="button"
-                    onClick={() => alert("Voice transcription feature is coming soon!")}
-                    disabled={loading || backendStatus === 'offline'}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading || uploadingFile || backendStatus === 'offline'}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer shrink-0 mr-1"
+                    title="Upload and ingest files/code/projects"
                   >
-                    <Mic size={18} />
+                    <Plus size={18} />
                   </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUploadChange}
+                    style={{ display: 'none' }}
+                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README"
+                  />
 
-                  {input.trim() ? (
-                    <button
-                      type="submit"
-                      disabled={loading || backendStatus === 'offline'}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 shadow-md active:scale-95"
-                    >
-                      <ArrowUp size={18} />
-                    </button>
-                  ) : (
+                  {/* Main Prompt Input */}
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={loading || uploadingFile || backendStatus === 'offline'}
+                    placeholder={
+                      backendStatus === 'offline'
+                        ? 'Reconnect to backend to send prompts...'
+                        : 'Ask anything'
+                    }
+                    className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-[#8e8e8e] focus:outline-none disabled:opacity-50"
+                  />
+                  
+                  {/* Voice & Submit Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
-                      onClick={() => alert("Voice mode features are coming soon!")}
-                      disabled={loading || backendStatus === 'offline'}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 active:scale-95"
+                      onClick={() => alert("Voice transcription feature is coming soon!")}
+                      disabled={loading || uploadingFile || backendStatus === 'offline'}
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="8" y1="5" x2="8" y2="19"></line>
-                        <line x1="12" y1="9" x2="12" y2="15"></line>
-                        <line x1="16" y1="7" x2="16" y2="17"></line>
-                        <line x1="20" y1="10" x2="20" y2="14"></line>
-                      </svg>
+                      <Mic size={18} />
                     </button>
-                  )}
+
+                    {(input.trim() || stagedFile) ? (
+                      <button
+                        type="submit"
+                        disabled={loading || uploadingFile || backendStatus === 'offline'}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 shadow-md active:scale-95 disabled:bg-slate-800 disabled:text-slate-500"
+                      >
+                        <ArrowUp size={18} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => alert("Voice mode features are coming soon!")}
+                        disabled={loading || uploadingFile || backendStatus === 'offline'}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 active:scale-95"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="8" y1="5" x2="8" y2="19"></line>
+                          <line x1="12" y1="9" x2="12" y2="15"></line>
+                          <line x1="16" y1="7" x2="16" y2="17"></line>
+                          <line x1="20" y1="10" x2="20" y2="14"></line>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
+
               </div>
               <div className="text-center text-[10px] text-slate-500 mt-2 font-sans selection:bg-transparent">
                 MemoryForge can make mistakes. Verify critical logic and code structures.
