@@ -91,7 +91,6 @@ const AutonomousWorkspace = () => {
       setLoadingFiles(false);
     }
   };
-
   const processProjectFiles = async (fileList) => {
     if (!fileList || fileList.length === 0) return;
 
@@ -100,7 +99,7 @@ const AutonomousWorkspace = () => {
     setUploadMessage('Uploading project files...');
 
     try {
-      const response = await uploadFileProject(selectedFiles);
+      const response = await uploadFileProject(selectedFiles) || {};
       setUploadMessage(
         `Uploaded ${response.files_in_workspace || selectedFiles.length} file(s) into the workspace.`
       );
@@ -112,7 +111,6 @@ const AutonomousWorkspace = () => {
       setUploadingProject(false);
     }
   };
-
   const handleProjectUpload = async (e) => {
     await processProjectFiles(e.target.files);
     e.target.value = null;
@@ -471,56 +469,66 @@ const AutonomousWorkspace = () => {
 
   // File explorer recursive tree renderer
   const renderTree = (dirPath, depth = 0) => {
-    const contents = folderContents[dirPath] || [];
-    
-    // Sort directories first, then files
-    const sortedContents = [...contents].sort((a, b) => {
-      if (a.is_dir && !b.is_dir) return -1;
-      if (!a.is_dir && b.is_dir) return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-    return sortedContents.map(item => {
-      const itemPath = dirPath === '.' ? item.name : `${dirPath}/${item.name}`;
+    try {
+      const rawContents = folderContents[dirPath];
+      const contents = Array.isArray(rawContents) ? rawContents : [];
       
-      if (item.is_dir) {
-        const isExpanded = expandedFolders[itemPath];
-        return (
-          <div key={itemPath} className="select-none">
-            <button 
-              onClick={() => handleFolderClick(itemPath)}
-              className="flex items-center gap-1.5 py-1.5 px-2 hover:bg-slate-900/60 text-slate-300 hover:text-white w-full text-left font-medium text-xs rounded transition-colors cursor-pointer"
-              style={{ paddingLeft: `${depth * 12 + 8}px` }}
-            >
-              <span className="shrink-0 text-slate-500">
-                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </span>
-              <Folder size={14} className="text-indigo-400 shrink-0 fill-indigo-400/20" />
-              <span className="truncate">{item.name}</span>
-            </button>
-            {isExpanded && renderTree(itemPath, depth + 1)}
-          </div>
-        );
-      } else {
-        const isSelected = currentFilePath === itemPath;
-        return (
-          <div key={itemPath}>
-            <button 
-              onClick={() => handleFileClick(itemPath)}
-              className={`flex items-center gap-2 py-1.5 px-2 w-full text-left text-xs transition-colors rounded cursor-pointer ${
-                isSelected 
-                  ? 'bg-indigo-600/10 text-indigo-400 font-semibold border border-indigo-500/20' 
-                  : 'text-slate-400 hover:bg-slate-900/40 hover:text-slate-200 border border-transparent'
-              }`}
-              style={{ paddingLeft: `${depth * 12 + 24}px` }}
-            >
-              <FileCode size={14} className={isSelected ? "text-indigo-400" : "text-slate-500"} />
-              <span className="truncate">{item.name}</span>
-            </button>
-          </div>
-        );
-      }
-    });
+      // Sort directories first, then files
+      const sortedContents = [...contents].sort((a, b) => {
+        if (!a || !b) return 0;
+        if (a.is_dir && !b.is_dir) return -1;
+        if (!a.is_dir && b.is_dir) return 1;
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB);
+      });
+
+      return sortedContents.map(item => {
+        if (!item || !item.name) return null;
+        const itemPath = dirPath === '.' ? item.name : `${dirPath}/${item.name}`;
+        
+        if (item.is_dir) {
+          const isExpanded = expandedFolders[itemPath];
+          return (
+            <div key={itemPath} className="select-none">
+              <button 
+                onClick={() => handleFolderClick(itemPath)}
+                className="flex items-center gap-1.5 py-1.5 px-2 hover:bg-slate-900/60 text-slate-300 hover:text-white w-full text-left font-medium text-xs rounded transition-colors cursor-pointer"
+                style={{ paddingLeft: `${depth * 12 + 8}px` }}
+              >
+                <span className="shrink-0 text-slate-500">
+                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </span>
+                <Folder size={14} className="text-indigo-400 shrink-0 fill-indigo-400/20" />
+                <span className="truncate">{item.name}</span>
+              </button>
+              {isExpanded && renderTree(itemPath, depth + 1)}
+            </div>
+          );
+        } else {
+          const isSelected = currentFilePath === itemPath;
+          return (
+            <div key={itemPath}>
+              <button 
+                onClick={() => handleFileClick(itemPath)}
+                className={`flex items-center gap-2 py-1.5 px-2 w-full text-left text-xs transition-colors rounded cursor-pointer ${
+                  isSelected 
+                    ? 'bg-indigo-600/10 text-indigo-400 font-semibold border border-indigo-500/20' 
+                    : 'text-slate-400 hover:bg-slate-900/40 hover:text-slate-200 border border-transparent'
+                }`}
+                style={{ paddingLeft: `${depth * 12 + 24}px` }}
+              >
+                <FileCode size={14} className={isSelected ? "text-indigo-400" : "text-slate-500"} />
+                <span className="truncate">{item.name}</span>
+              </button>
+            </div>
+          );
+        }
+      });
+    } catch (renderErr) {
+      console.error("Error rendering directory tree:", renderErr);
+      return <div className="text-rose-450 p-2 text-2xs font-mono">Render Error</div>;
+    }
   };
 
   // Editor line numbers list
