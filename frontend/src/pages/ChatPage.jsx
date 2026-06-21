@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ChatWindow from '../components/ChatWindow';
 import MemoryPanel from '../components/MemoryPanel';
+import NetworkAnimation from '../components/NetworkAnimation';
 import { 
   sendChatMessage, 
   getHealth, 
@@ -39,6 +40,7 @@ const ChatPage = () => {
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking'); // checking, online, offline
+  const [showHero, setShowHero] = useState(true);
   
   // Success Metrics State
   const [storedCount, setStoredCount] = useState(0);
@@ -158,6 +160,9 @@ const ChatPage = () => {
 
     const displayMsg = displayText || messageText;
 
+    // Hide hero when first message is sent
+    setShowHero(false);
+
     // Stage user message
     setMessages((prev) => [...prev, { role: 'user', content: displayMsg }]);
     setLoading(true);
@@ -260,7 +265,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
     }
 
     setInput('');
-    setStagedFile(null); // Clear staged thumbnail
+    setStagedFile(null);
     handleSend(queryToSend, displayMessageText);
   };
 
@@ -308,11 +313,61 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-slate-950 relative">
-      {/* Ambient background glow — matches AuthPage / AdminDashboard / MemoryDashboard */}
+      {/* Ambient background glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden opacity-60">
         <div className="absolute -top-40 left-1/4 h-96 w-96 rounded-full bg-brand-700/10 blur-[120px]" />
         <div className="absolute top-1/3 -right-20 h-80 w-80 rounded-full bg-brand-600/10 blur-[100px]" />
       </div>
+
+      {/* Network Animation Hero Section */}
+      {showHero && (
+        <div className="relative w-full">
+          <NetworkAnimation height="500px" nodeCount={50} speed={1.5} distance={120} glow={1} />
+          
+          {/* Overlay gradient for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/30 via-transparent to-slate-950/50 pointer-events-none" />
+          
+          {/* Hero Content */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div className="relative z-10 text-center px-4 max-w-3xl">
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent mb-4">
+                Build AI Systems
+              </h1>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-brand-300 via-brand-400 to-cyan-300 bg-clip-text text-transparent mb-6">
+                With Persistent Memory
+              </h2>
+              
+              <p className="text-slate-300 text-sm md:text-base max-w-2xl mx-auto mb-8 leading-relaxed">
+                MemoryForge empowers AI engineers with long-term memory, architecture retention, contextual reasoning, and intelligent retrieval across projects and conversations.
+              </p>
+
+              {/* Feature Badges */}
+              <div className="flex flex-wrap gap-3 justify-center pointer-events-auto">
+                <button className="flex items-center gap-2 px-4 py-2 rounded-full border border-brand-500/30 bg-brand-500/10 hover:bg-brand-500/20 text-brand-200 text-xs font-semibold uppercase tracking-wider transition-all duration-200 cursor-pointer">
+                  <span className="h-2 w-2 rounded-full bg-brand-400" />
+                  Persistent Memory
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 text-xs font-semibold uppercase tracking-wider transition-all duration-200 cursor-pointer">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  Context Retrieval
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 text-xs font-semibold uppercase tracking-wider transition-all duration-200 cursor-pointer">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                  Agent Engineering
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Close button for hero */}
+          <button
+            onClick={() => setShowHero(false)}
+            className="absolute top-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/60 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition-all pointer-events-auto"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Offline Status Warning */}
       {backendStatus === 'offline' && (
@@ -624,7 +679,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
             <MemoryPanel memories={latestMemories} />
           </div>
 
-          {/* 2. Success Metrics Box — the proof point, made to pop */}
+          {/* 2. Success Metrics Box */}
           <div className="rounded-2xl border border-brand-500/20 bg-gradient-to-b from-brand-500/[0.07] to-slate-900/40 p-4 shadow-[0_0_24px_-8px_rgba(92,120,255,0.35)]">
             <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800/60 mb-3">
               <Database size={14} className="text-brand-400" />
