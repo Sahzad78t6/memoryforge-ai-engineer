@@ -21,7 +21,8 @@ import {
   Activity,
   Trash2,
   Lock,
-  Compass
+  Compass,
+  Upload
 } from 'lucide-react';
 import { 
   getWorkspaceFiles, 
@@ -73,6 +74,7 @@ const AutonomousWorkspace = () => {
   // Upload state
   const [uploadingProject, setUploadingProject] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+  const [draggingUpload, setDraggingUpload] = useState(false);
 
   // Fetch Root Files initially
   const loadRootFiles = async () => {
@@ -90,10 +92,10 @@ const AutonomousWorkspace = () => {
     }
   };
 
-  const handleProjectUpload = async (e) => {
-    if (!e.target.files || e.target.files.length === 0) return;
+  const processProjectFiles = async (fileList) => {
+    if (!fileList || fileList.length === 0) return;
 
-    const selectedFiles = Array.from(e.target.files);
+    const selectedFiles = Array.from(fileList);
     setUploadingProject(true);
     setUploadMessage('Uploading project files...');
 
@@ -108,8 +110,18 @@ const AutonomousWorkspace = () => {
       setUploadMessage(err.response?.data?.detail || 'Upload failed. Please try again.');
     } finally {
       setUploadingProject(false);
-      e.target.value = null;
     }
+  };
+
+  const handleProjectUpload = async (e) => {
+    await processProjectFiles(e.target.files);
+    e.target.value = null;
+  };
+
+  const handleDropUpload = async (e) => {
+    e.preventDefault();
+    setDraggingUpload(false);
+    await processProjectFiles(e.dataTransfer.files);
   };
 
   useEffect(() => {
@@ -593,6 +605,35 @@ const AutonomousWorkspace = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-slate-900">
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDraggingUpload(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setDraggingUpload(false);
+              }}
+              onDrop={handleDropUpload}
+              className={`mx-1 mb-2 rounded-xl border p-3 text-center transition-colors ${
+                draggingUpload
+                  ? 'border-indigo-500/60 bg-indigo-500/10'
+                  : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2 text-[11px] text-slate-300">
+                <Upload size={14} className="text-indigo-400" />
+                <span>Drop project folder/files here</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => uploadInputRef.current?.click()}
+                className="mt-2 text-[10px] uppercase tracking-wider text-indigo-300 hover:text-indigo-200"
+              >
+                Or choose files manually
+              </button>
+            </div>
+
             {loadingFiles && (
               <div className="flex flex-col items-center justify-center p-8 gap-2 text-slate-500 text-xs">
                 <RefreshCw size={16} className="animate-spin text-indigo-400" />

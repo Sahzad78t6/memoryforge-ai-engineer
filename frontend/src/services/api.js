@@ -205,7 +205,8 @@ export const uploadFileProject = async (files) => {
     const formData = new FormData();
     const uploadItems = Array.isArray(files) ? files : [files];
     uploadItems.forEach((file) => {
-      formData.append('files', file);
+      const safeFileName = file.webkitRelativePath || file.name || 'upload';
+      formData.append('files', file, safeFileName);
     });
     const response = await api.post('/upload/project', formData, {
       headers: {
