@@ -572,6 +572,7 @@ async def upload_image(
     Accepts an image file, runs OCR text extraction, analyzes with Groq,
     and indexes findings and memories.
     """
+    logger.info("[IMAGE RECEIVED] Received image upload request.")
     user_id = str(current_user["_id"])
     filename = file.filename
     content_bytes = await file.read()
@@ -623,13 +624,17 @@ async def upload_image(
                 "file_id": file_id
             })
 
+            logger.info("[UPLOAD COMPLETE] Image processing complete (empty OCR fallback).")
             return {
+                "status": "partial_success",
+                "filename": filename,
+                "extracted_text": "",
                 "summary": ocr_result["summary"],
                 "analysis": ocr_result["analysis"],
+                "technologies_detected": [],
+                "architecture_patterns": [],
                 "memories_created": [],
-                "status": "partial_success",
                 "file_id": file_id,
-                "filename": filename,
                 "size": file_size
             }
         
@@ -637,7 +642,9 @@ async def upload_image(
         ocr_content = ocr_result.get("text", "")
         
         # 4. Extract structured knowledge using Groq LLM
+        logger.info("[GROQ ANALYSIS START] Starting Groq analysis on extracted text.")
         analysis = knowledge_extractor.extract_structured_knowledge(filename, ocr_content, "image")
+        logger.info("[GROQ ANALYSIS COMPLETE] Groq analysis complete.")
         
         # 5. Save to MongoDB 'uploaded_files'
         file_doc = {
@@ -677,25 +684,48 @@ async def upload_image(
             "file_id": file_id
         })
         
+        # Check rule-based memories based on extracted text contents
+        rule_memories = []
+        ocr_upper = ocr_content.upper()
+        if "MONGODB" in ocr_upper:
+            rule_memories.append({"type": "architecture", "content": "Uses MongoDB Atlas"})
+        if "JWT" in ocr_upper:
+            rule_memories.append({"type": "authentication", "content": "Uses JWT Authentication"})
+
         # 7. Ingest memories
         saved_memories = []
+        
+        # Ingest AI-generated memories
         for mem in analysis.get("memories", []):
             try:
                 item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
-                saved_memories.append(item)
+                saved_memories.append({"type": item.type, "content": item.content})
             except Exception as mem_err:
                 logger.error(f"Failed to ingest memory from image: {str(mem_err)}")
                 
+        # Ingest rule-based memories
+        for rm in rule_memories:
+            try:
+                # Avoid duplicate content statements in saved_memories
+                if not any(m["content"].lower() == rm["content"].lower() for m in saved_memories):
+                    item = save_memory(rm["type"], rm["content"], user_id=user_id)
+                    saved_memories.append({"type": item.type, "content": item.content})
+            except Exception as mem_err:
+                logger.error(f"Failed to save rule-based memory: {str(mem_err)}")
+
+        logger.info("[MEMORIES GENERATED] Ingested memories successfully.")
+        logger.info("[UPLOAD COMPLETE] Image processing complete.")
+        
         return {
-            "file_id": file_id,
+            "status": "success",
             "filename": filename,
-            "size": file_size,
-            "analysis": analysis,
-            "memories_created_count": len(saved_memories),
             "extracted_text": ocr_content,
             "summary": analysis.get("summary", ""),
             "technologies_detected": analysis.get("technologies", []),
-            "memories_generated": analysis.get("memories", [])
+            "architecture_patterns": [analysis.get("architecture", "Unknown")] if analysis.get("architecture") else [],
+            "memories_created": saved_memories,
+            "file_id": file_id,
+            "size": file_size
         }
     except Exception as e:
         logger.error(f"Failed to ingest image: {str(e)}")

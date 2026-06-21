@@ -80,9 +80,12 @@ const ChatPage = () => {
         type: file.type,
         status: 'ready',
         fileId: response.file_id,
-        analysis: response.analysis,
-        summary: response.summary || (response.analysis && typeof response.analysis === 'object' ? response.analysis.summary : response.analysis) || 'No summary available.',
-        ocrStatus: response.status || 'success'
+        analysis: response.analysis || response, // use response directly as analysis fallback for flat responses
+        summary: response.summary || response.analysis?.summary || 'No summary available.',
+        ocrStatus: response.status || 'success',
+        extractedText: response.extracted_text || '',
+        technologies: response.technologies_detected || response.analysis?.technologies || [],
+        memories: response.memories_created || response.analysis?.memories || []
       });
 
       // Refresh total count metrics
@@ -437,6 +440,73 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                          </div>
                        )}
                      </div>
+
+                     {/* Collapsible Image Analysis Panel */}
+                     {stagedFile.status === 'ready' && stagedFile.type?.startsWith('image/') && (
+                       <div className="mt-2 border-t border-slate-800/60 pt-2 w-full text-left">
+                         <details className="group bg-slate-900/30 border border-slate-900 rounded-xl p-3" open>
+                           <summary className="flex items-center justify-between text-xs font-bold text-slate-300 hover:text-white cursor-pointer select-none">
+                             <span className="flex items-center gap-1.5 uppercase tracking-wider text-2xs">
+                               <Sparkles size={12} className="text-emerald-400" />
+                               Image Analysis Details
+                             </span>
+                             <span className="text-slate-500 group-open:rotate-180 transition-transform duration-200 text-3xs">
+                               ▼
+                             </span>
+                           </summary>
+                           <div className="mt-3 space-y-4 pl-1 pr-1 max-h-60 overflow-y-auto">
+                             {/* Extracted Text */}
+                             {stagedFile.extractedText ? (
+                               <div className="space-y-1">
+                                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Extracted Text</span>
+                                 <div className="bg-slate-950/80 border border-slate-900/80 rounded-lg p-2.5 text-2xs text-slate-300 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto select-text">
+                                   {stagedFile.extractedText}
+                                 </div>
+                               </div>
+                             ) : null}
+
+                             {/* Summary */}
+                             <div className="space-y-1">
+                               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Summary</span>
+                               <p className="text-2xs text-slate-350 leading-relaxed font-sans">
+                                 {stagedFile.summary}
+                               </p>
+                             </div>
+
+                             {/* Detected Technologies */}
+                             {stagedFile.technologies && stagedFile.technologies.length > 0 ? (
+                               <div className="space-y-1.5">
+                                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Detected Technologies</span>
+                                 <div className="flex flex-wrap gap-1">
+                                   {stagedFile.technologies.map((t, idx) => (
+                                     <span key={idx} className="bg-slate-950 border border-slate-900 text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded-md">
+                                       {t}
+                                     </span>
+                                   ))}
+                                 </div>
+                               </div>
+                             ) : null}
+
+                             {/* Generated Memories */}
+                             {stagedFile.memories && stagedFile.memories.length > 0 ? (
+                               <div className="space-y-1.5">
+                                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Generated Memories</span>
+                                 <ul className="list-none space-y-1">
+                                   {stagedFile.memories.map((m, idx) => (
+                                     <li key={idx} className="flex items-start gap-1.5 text-2xs text-slate-300">
+                                       <span className="text-emerald-500 font-bold shrink-0">🧠</span>
+                                       <span>
+                                         <strong className="text-slate-400 font-semibold">[{m.type}]</strong> {m.content}
+                                       </span>
+                                     </li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             ) : null}
+                           </div>
+                         </details>
+                       </div>
+                     )}
                    </div>
                  )}
 

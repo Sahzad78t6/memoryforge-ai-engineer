@@ -65,14 +65,15 @@ def parse_image_ocr(file_bytes: bytes, filename: str = "") -> dict:
             # Attempt OCR text extraction
             ocr_text = pytesseract.image_to_string(image)
             if ocr_text and ocr_text.strip():
+                logger.info("[OCR SUCCESS] OCR text extraction completed successfully.")
+                logger.info("[TEXT EXTRACTED] Extracted raw text from image.")
                 return {
                     "status": "success",
-                    "text": ocr_text,
+                    "text": ocr_text.strip(),
                     "metadata": {"width": width, "height": height, "format": img_format}
                 }
             else:
                 logger.warning("[OCR FAILED] No readable text found in the image.")
-                logger.info("[OCR FALLBACK USED] OCR fallback text generated.")
                 analysis_msg = "The uploaded image was received successfully but readable text could not be extracted."
                 if image_type:
                     analysis_msg = f"This appears to be a {image_type}. Text extraction is currently unavailable for this image, but the file was uploaded successfully."
@@ -84,7 +85,6 @@ def parse_image_ocr(file_bytes: bytes, filename: str = "") -> dict:
                 }
         except Exception as ocr_err:
             logger.warning(f"[OCR FAILED] Tesseract OCR extraction failed: {str(ocr_err)}")
-            logger.info("[OCR FALLBACK USED] OCR fallback text generated.")
             analysis_msg = "The uploaded image was received successfully but readable text could not be extracted."
             if image_type:
                 analysis_msg = f"This appears to be a {image_type}. Text extraction is currently unavailable for this image, but the file was uploaded successfully."
