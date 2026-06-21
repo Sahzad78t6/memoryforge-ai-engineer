@@ -200,10 +200,13 @@ export const uploadFileImage = async (file) => {
   }
 };
 
-export const uploadFileProject = async (file) => {
+export const uploadFileProject = async (files) => {
   try {
     const formData = new FormData();
-    formData.append('file', file);
+    const uploadItems = Array.isArray(files) ? files : [files];
+    uploadItems.forEach((file) => {
+      formData.append('files', file);
+    });
     const response = await api.post('/upload/project', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

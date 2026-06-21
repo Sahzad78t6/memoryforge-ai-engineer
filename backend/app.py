@@ -76,6 +76,22 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": f"An internal server error occurred: {str(exc)}"}
     )
 
+
+def get_user_workspace_root_for_request(user_id: str) -> str:
+    """
+    Uses the latest uploaded project location for the user when available,
+    otherwise falls back to a generated per-user default workspace.
+    """
+    from tools import get_user_project_root
+
+    latest_upload = mongodb.db.uploaded_files.find_one(
+        {"user_id": user_id},
+        sort=[("timestamp", -1)]
+    )
+    if latest_upload and latest_upload.get("project_root"):
+        return latest_upload["project_root"]
+    return get_user_project_root(user_id)
+
 @app.get("/health")
 async def health():
     """
@@ -840,37 +856,101 @@ async def get_knowledge_image(id: str, current_user: dict = Depends(auth.get_cur
 
 @app.post("/upload/project")
 async def upload_project(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     current_user: dict = Depends(auth.get_current_user)
 ):
     """
-    Accepts a project ZIP archive, unpacks structure and code, analyzes with Groq,
-    and registers project analysis metadata and memories.
+    Accepts one or more uploaded project files/folders and stores them in a per-user workspace.
+    ZIP archives are unpacked so the agent APIs can read and edit them directly.
     """
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one file must be uploaded.")
+
     user_id = str(current_user["_id"])
-    filename = file.filename
-    content_bytes = await file.read()
-    file_size = len(content_bytes)
-    
+    from tools import get_user_project_root
+
+    # Determine a project name from the first upload so each user gets a dedicated workspace.
+    first_filename = files[0].filename or "project"
+    first_name = Path(first_filename).name
+    project_name = Path(first_name).stem if first_name.lower().endswith(".zip") else first_name.split(".")[0] or "project"
+    project_root = get_user_project_root(user_id, project_name)
+    project_root_path = Path(project_root)
+
+    # Reset the selected project folder so the latest upload fully determines the workspace contents.
+    if project_root_path.exists():
+        shutil.rmtree(project_root_path, ignore_errors=True)
+    project_root_path.mkdir(parents=True, exist_ok=True)
+
+    zip_bytes = None
+    zip_filename = None
+    total_bytes = 0
+
     try:
-        # 1. Parse ZIP file contents
-        zip_content = file_parsers.parse_project_zip(content_bytes)
-        
-        # 2. Extract structured knowledge using Groq LLM
-        analysis = knowledge_extractor.extract_structured_knowledge(filename, zip_content, "project")
-        
-        # 3. Save to MongoDB 'uploaded_files'
+        for uploaded_file in files:
+            filename = uploaded_file.filename or ""
+            if not filename:
+                continue
+
+            normalized_filename = filename.replace('\\', '/')
+            path_parts = PurePosixPath(normalized_filename).parts
+            if any(part in ('.', '..') for part in path_parts):
+                raise HTTPException(status_code=400, detail="Invalid file path detected.")
+
+            raw_content = await uploaded_file.read()
+            total_bytes += len(raw_content)
+            if filename.lower().endswith(".zip"):
+                zip_bytes = raw_content
+                zip_filename = filename
+                with zipfile.ZipFile(io.BytesIO(raw_content)) as archive:
+                    for member in archive.infolist():
+                        if member.filename.endswith('/'):
+                            continue
+                        rel_path = PurePosixPath(member.filename)
+                        target_path = project_root_path / rel_path
+                        if not str(target_path.resolve()).startswith(str(project_root_path.resolve())):
+                            raise HTTPException(status_code=400, detail="Invalid archive path detected.")
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        with archive.open(member) as src, open(target_path, 'wb') as dst:
+                            shutil.copyfileobj(src, dst)
+            else:
+                relative_path = PurePosixPath(*path_parts)
+                target_path = project_root_path / relative_path
+                if not str(target_path.resolve()).startswith(str(project_root_path.resolve())):
+                    raise HTTPException(status_code=400, detail="Invalid upload path detected.")
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(target_path, 'wb') as dst:
+                    dst.write(raw_content)
+
+        file_count = sum(1 for _ in project_root_path.rglob('*') if _.is_file())
+
+        if zip_bytes and zip_filename:
+            zip_content = file_parsers.parse_project_zip(zip_bytes)
+            analysis = knowledge_extractor.extract_structured_knowledge(zip_filename, zip_content, "project")
+        else:
+            analysis = {
+                "summary": f"Uploaded {file_count} files into the workspace for agent use.",
+                "technologies": [],
+                "architecture": "Unknown",
+                "decisions": [],
+                "dependencies": [],
+                "security_findings": [],
+                "memories": []
+            }
+
+        # Save to MongoDB 'uploaded_files'
         file_doc = {
-            "filename": filename,
+            "filename": zip_filename or first_filename,
             "file_type": "project",
-            "size": file_size,
+            "size": total_bytes,
             "user_id": user_id,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
+            "project_root": str(project_root_path),
+            "files_in_workspace": file_count
         }
         res_file = mongodb.db.uploaded_files.insert_one(file_doc)
         file_id = str(res_file.inserted_id)
-        
-        # 4. Save metadata tables
+
+        # Save metadata tables
         mongodb.db.file_summaries.insert_one({
             "file_id": file_id,
             "user_id": user_id,
@@ -890,26 +970,26 @@ async def upload_project(
         })
         
         mongodb.db.knowledge_base.insert_one({
-            "title": f"Project Archive: {filename}",
-            "content": f"Ingested ZIP structure and configuration contents for {filename}",
+            "title": f"Project Workspace: {zip_filename or first_filename}",
+            "content": f"Uploaded project files and workspace contents for {zip_filename or first_filename}",
             "user_id": user_id,
             "timestamp": datetime.utcnow(),
             "file_id": file_id
         })
         
-        # 5. Ingest memories
         saved_memories = []
         for mem in analysis.get("memories", []):
             try:
                 item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
                 saved_memories.append(item)
             except Exception as mem_err:
-                logger.error(f"Failed to ingest memory from project ZIP: {str(mem_err)}")
-                
+                logger.error(f"Failed to ingest memory from uploaded project: {str(mem_err)}")
+        
         return {
             "file_id": file_id,
-            "filename": filename,
-            "size": file_size,
+            "filename": zip_filename or first_filename,
+            "project_root": str(project_root_path),
+            "files_in_workspace": file_count,
             "analysis": analysis,
             "memories_created_count": len(saved_memories)
         }
@@ -997,10 +1077,12 @@ async def get_knowledge_history(
 @app.get("/agent/files")
 async def agent_list_files(directory: str = ".", current_user: dict = Depends(auth.get_current_user)):
     """
-    Returns list of files and directories within the authorized project root directory.
+    Returns list of files and directories within the user's uploaded project workspace.
     """
     from tools import list_files
-    res = list_files(directory)
+    user_id = str(current_user["_id"])
+    project_root = get_user_workspace_root_for_request(user_id)
+    res = list_files(directory, base_root=project_root)
     if not res["success"]:
         raise HTTPException(status_code=400, detail=res["error"])
     return res["data"]
@@ -1009,10 +1091,12 @@ async def agent_list_files(directory: str = ".", current_user: dict = Depends(au
 @app.get("/agent/file")
 async def agent_read_file(path: str, current_user: dict = Depends(auth.get_current_user)):
     """
-    Reads the content of a workspace file relative to the project root.
+    Reads the content of a workspace file relative to the user's uploaded project root.
     """
     from tools import read_file
-    res = read_file(path)
+    user_id = str(current_user["_id"])
+    project_root = get_user_workspace_root_for_request(user_id)
+    res = read_file(path, base_root=project_root)
     if not res["success"]:
         raise HTTPException(status_code=400, detail=res["error"])
     return {"content": res["data"]}
@@ -1028,7 +1112,9 @@ async def agent_write_file(payload: dict, current_user: dict = Depends(auth.get_
     if not path or content is None:
         raise HTTPException(status_code=400, detail="Path and content are required.")
     from tools import write_file
-    res = write_file(path, content)
+    user_id = str(current_user["_id"])
+    project_root = get_user_workspace_root_for_request(user_id)
+    res = write_file(path, content, base_root=project_root)
     if not res["success"]:
         raise HTTPException(status_code=400, detail=res["error"])
     return {"message": res["data"]}
@@ -1037,7 +1123,7 @@ async def agent_write_file(payload: dict, current_user: dict = Depends(auth.get_
 @app.post("/agent/command")
 async def agent_run_command(payload: dict, current_user: dict = Depends(auth.get_current_user)):
     """
-    Runs a shell command inside the project root directory and returns terminal logs.
+    Runs a shell command inside the user's uploaded project directory and returns terminal logs.
     """
     command = payload.get("command")
     if not command:
@@ -1048,12 +1134,13 @@ async def agent_run_command(payload: dict, current_user: dict = Depends(auth.get
         raise HTTPException(status_code=400, detail="Forbidden command: potentially destructive execution blocked.")
         
     import subprocess
-    from tools import PROJECT_ROOT
+    user_id = str(current_user["_id"])
+    project_root = get_user_workspace_root_for_request(user_id)
     try:
         process = subprocess.run(
             command,
             shell=True,
-            cwd=PROJECT_ROOT,
+            cwd=project_root,
             capture_output=True,
             text=True,
             timeout=15

@@ -1,25 +1,60 @@
 import os
-from typing import Dict, Any, List
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
-# Authorize file operations only within the project directory to prevent path traversal vulnerabilities.
+# Authorize file operations only within the configured project directory to prevent path traversal vulnerabilities.
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "workspaces"))
 
-def _is_safe_path(path: str) -> bool:
-    """
-    Helper function to check if the target path resides within the PROJECT_ROOT.
-    """
-    abs_path = os.path.abspath(path)
-    return abs_path.startswith(PROJECT_ROOT)
 
-def _resolve_path(path: str) -> str:
+def _to_safe_name(value: str) -> str:
+    cleaned = value.strip().lower()
+    cleaned = ''.join(ch if ch.isalnum() or ch in ('-', '_') else '-' for ch in cleaned)
+    cleaned = cleaned.strip('-_')
+    return cleaned or "project"
+
+
+def _is_safe_path(path: str, base_root: Optional[str] = None) -> bool:
     """
-    Helper function to resolve absolute paths relative to PROJECT_ROOT if a relative path is passed.
+    Helper function to check if the target path resides within the allowed base root.
     """
+    allowed_root = os.path.realpath(base_root or PROJECT_ROOT)
+    abs_path = os.path.realpath(os.path.abspath(path))
+    return os.path.commonpath([allowed_root, abs_path]) == allowed_root
+
+
+def _resolve_path(path: str, base_root: Optional[str] = None) -> str:
+    """
+    Helper function to resolve absolute paths relative to the configured base root if a relative path is passed.
+    """
+    root = os.path.realpath(base_root or PROJECT_ROOT)
     if not os.path.isabs(path):
-        return os.path.abspath(os.path.join(PROJECT_ROOT, path))
+        return os.path.abspath(os.path.join(root, path))
     return os.path.abspath(path)
 
-def read_file(path: str) -> Dict[str, Any]:
+
+def get_user_workspace_root(user_id: str) -> str:
+    """
+    Returns the per-user workspace root and creates it if it does not exist.
+    """
+    user_key = _to_safe_name(str(user_id))
+    root = os.path.join(WORKSPACE_ROOT, user_key)
+    os.makedirs(root, exist_ok=True)
+    return root
+
+
+def get_user_project_root(user_id: str, project_name: Optional[str] = None) -> str:
+    """
+    Returns a per-user project directory that is safe to use for reading/writing uploaded files.
+    """
+    base_root = get_user_workspace_root(user_id)
+    folder_name = _to_safe_name(project_name or "default-project")
+    project_root = os.path.join(base_root, folder_name)
+    os.makedirs(project_root, exist_ok=True)
+    return project_root
+
+
+def read_file(path: str, base_root: Optional[str] = None) -> Dict[str, Any]:
     """
     Reads the content of a text file safely.
     
@@ -29,9 +64,9 @@ def read_file(path: str) -> Dict[str, Any]:
         error (str, optional): Error message if action failed.
     """
     try:
-        target_path = _resolve_path(path)
+        target_path = _resolve_path(path, base_root)
         
-        if not _is_safe_path(target_path):
+        if not _is_safe_path(target_path, base_root):
             return {
                 "success": False,
                 "error": f"Security Error: Access denied. Path '{path}' is outside the authorized project root."
@@ -50,7 +85,8 @@ def read_file(path: str) -> Dict[str, Any]:
     except Exception as e:
         return {"success": False, "error": f"Failed to read file: {str(e)}"}
 
-def write_file(path: str, content: str) -> Dict[str, Any]:
+
+def write_file(path: str, content: str, base_root: Optional[str] = None) -> Dict[str, Any]:
     """
     Writes text content to a file safely.
     
@@ -60,9 +96,9 @@ def write_file(path: str, content: str) -> Dict[str, Any]:
         error (str, optional): Error message if action failed.
     """
     try:
-        target_path = _resolve_path(path)
+        target_path = _resolve_path(path, base_root)
         
-        if not _is_safe_path(target_path):
+        if not _is_safe_path(target_path, base_root):
             return {
                 "success": False,
                 "error": f"Security Error: Access denied. Path '{path}' is outside the authorized project root."
@@ -78,7 +114,8 @@ def write_file(path: str, content: str) -> Dict[str, Any]:
     except Exception as e:
         return {"success": False, "error": f"Failed to write file: {str(e)}"}
 
-def list_files(directory: str = ".") -> Dict[str, Any]:
+
+def list_files(directory: str = ".", base_root: Optional[str] = None) -> Dict[str, Any]:
     """
     Lists the files and directories inside a given folder path.
     
@@ -88,9 +125,9 @@ def list_files(directory: str = ".") -> Dict[str, Any]:
         error (str, optional): Error message if action failed.
     """
     try:
-        target_dir = _resolve_path(directory)
+        target_dir = _resolve_path(directory, base_root)
         
-        if not _is_safe_path(target_dir):
+        if not _is_safe_path(target_dir, base_root):
             return {
                 "success": False,
                 "error": f"Security Error: Access denied. Directory '{directory}' is outside the authorized project root."
