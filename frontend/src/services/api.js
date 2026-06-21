@@ -144,11 +144,7 @@ export const uploadDocumentFile = async (file) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post('/documents/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/documents/upload', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadDocumentFile):', error.response?.data || error.message);
@@ -172,11 +168,7 @@ export const uploadFileDoc = async (file) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post('/upload/file', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/upload/file', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadFileDoc):', error.response?.data || error.message);
@@ -188,11 +180,7 @@ export const uploadFileImage = async (file) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post('/upload/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/upload/image', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadFileImage):', error.response?.data || error.message);
@@ -200,15 +188,15 @@ export const uploadFileImage = async (file) => {
   }
 };
 
-export const uploadFileProject = async (file) => {
+export const uploadFileProject = async (files) => {
   try {
     const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post('/upload/project', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    const uploadItems = Array.isArray(files) ? files : [files];
+    uploadItems.forEach((file) => {
+      const safeFileName = file.webkitRelativePath || file.name || 'upload';
+      formData.append('files', file, safeFileName);
     });
+    const response = await api.post('/upload/project', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadFileProject):', error.response?.data || error.message);
@@ -238,4 +226,66 @@ export const getKnowledgeHistory = async () => {
   }
 };
 
+export const getKnowledgeImages = async () => {
+  try {
+    const response = await api.get('/knowledge/images');
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getKnowledgeImages):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getKnowledgeImage = async (id) => {
+  try {
+    const response = await api.get(`/knowledge/image/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getKnowledgeImage):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getWorkspaceFiles = async (directory = ".") => {
+  try {
+    const response = await api.get('/agent/files', { params: { directory } });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getWorkspaceFiles):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getWorkspaceFile = async (path) => {
+  try {
+    const response = await api.get('/agent/file', { params: { path } });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getWorkspaceFile):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const saveWorkspaceFile = async (path, content) => {
+  try {
+    const response = await api.post('/agent/file', { path, content });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (saveWorkspaceFile):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const runWorkspaceCommand = async (command) => {
+  try {
+    const response = await api.post('/agent/command', { command });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (runWorkspaceCommand):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default api;
+
+

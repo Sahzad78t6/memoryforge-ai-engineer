@@ -51,41 +51,53 @@ const ChatPage = () => {
 
   const handleFileUploadChange = async (e) => {
     if (!e.target.files || !e.target.files[0]) return;
-    const file = e.target.files[0];
-    
+
+    const selectedFiles = Array.from(e.target.files);
+    const isDirectoryUpload = e.target.webkitdirectory || selectedFiles.length > 1;
+    const primaryFile = selectedFiles[0];
+    const stagedName = isDirectoryUpload
+      ? `${selectedFiles.length} selected files`
+      : primaryFile.name;
+
     // Stage file in state as uploading
     setStagedFile({
-      name: file.name,
-      size: file.size,
-      type: file.type,
+      name: stagedName,
+      size: selectedFiles.reduce((total, file) => total + file.size, 0),
+      type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
       status: 'uploading'
     });
     setUploadingFile(true);
 
     try {
-      const ext = file.name.split('.').pop().toLowerCase();
       let response;
-      if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
-        response = await uploadFileImage(file);
-      } else if (ext === 'zip') {
-        response = await uploadFileProject(file);
+      if (isDirectoryUpload) {
+        response = await uploadFileProject(selectedFiles);
       } else {
-        response = await uploadFileDoc(file);
+        const ext = primaryFile.name.split('.').pop().toLowerCase();
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+          response = await uploadFileImage(primaryFile);
+        } else if (ext === 'zip') {
+          response = await uploadFileProject(primaryFile);
+        } else {
+          response = await uploadFileDoc(primaryFile);
+        }
       }
 
       // Staged successfully
+      const responseData = response || {};
+      const analysisObj = responseData.analysis || responseData || {};
       setStagedFile({
-        name: file.name,
-        size: file.size,
-        type: file.type,
+        name: stagedName,
+        size: responseData.size || selectedFiles.reduce((total, file) => total + file.size, 0),
+        type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
         status: 'ready',
-        fileId: response.file_id,
-        analysis: response.analysis || response, // use response directly as analysis fallback for flat responses
-        summary: response.summary || response.analysis?.summary || 'No summary available.',
-        ocrStatus: response.status || 'success',
-        extractedText: response.extracted_text || '',
-        technologies: response.technologies_detected || response.analysis?.technologies || [],
-        memories: response.memories_created || response.analysis?.memories || []
+        fileId: responseData.file_id,
+        analysis: analysisObj,
+        summary: responseData.summary || analysisObj.summary || 'No summary available.',
+        ocrStatus: responseData.status || 'success',
+        extractedText: responseData.extracted_text || '',
+        technologies: responseData.technologies_detected || analysisObj.technologies || [],
+        memories: responseData.memories_created || analysisObj.memories || []
       });
 
       // Refresh total count metrics
@@ -95,15 +107,15 @@ const ChatPage = () => {
       console.error('Staging file upload failed:', error);
       const errMsg = error.response?.data?.detail || 'Ingestion failed.';
       setStagedFile({
-        name: file.name,
-        size: file.size,
-        type: file.type,
+        name: stagedName,
+        size: selectedFiles.reduce((total, file) => total + file.size, 0),
+        type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
         status: 'error',
         error: errMsg
       });
     } finally {
       setUploadingFile(false);
-      e.target.value = null; // Reset file input
+      e.target.value = null;
     }
   };
 
@@ -529,7 +541,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading || uploadingFile || backendStatus === 'offline'}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-brand-300 hover:bg-brand-500/10 transition-all cursor-pointer shrink-0 mr-1"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer shrink-0 mr-1"
                     title="Upload and ingest files/code/projects"
                   >
                     <Plus size={18} />
@@ -539,8 +551,11 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                     ref={fileInputRef}
                     onChange={handleFileUploadChange}
                     style={{ display: 'none' }}
-                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README"
+                    multiple
+                    webkitdirectory=""
+                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
                   />
+
 
                   {/* Main Prompt Input */}
                   <input
@@ -551,7 +566,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                     placeholder={
                       backendStatus === 'offline'
                         ? 'Reconnect to backend to send prompts...'
-                        : 'Ask anything'
+                        : 'Ask the agent to inspect, edit, debug, or improve your project'
                     }
                     className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none disabled:opacity-50"
                   />

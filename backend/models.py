@@ -7,6 +7,8 @@ class MemoryItem(BaseModel):
     """
     type: str = Field(..., description="The category of memory (e.g., 'architecture', 'preference', 'bug_fix')")
     content: str = Field(..., description="The actual text content of the memory")
+    source_filename: Optional[str] = Field(None, description="The file this memory was extracted from")
+    created_at: Optional[str] = Field(None, description="When this memory was created/ingested")
 
 class ChatRequest(BaseModel):
     """
