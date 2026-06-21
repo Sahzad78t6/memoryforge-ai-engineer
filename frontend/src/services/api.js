@@ -144,11 +144,7 @@ export const uploadDocumentFile = async (file) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post('/documents/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/documents/upload', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadDocumentFile):', error.response?.data || error.message);
@@ -172,11 +168,7 @@ export const uploadFileDoc = async (file) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post('/upload/file', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/upload/file', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadFileDoc):', error.response?.data || error.message);
@@ -188,11 +180,7 @@ export const uploadFileImage = async (file) => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post('/upload/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/upload/image', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadFileImage):', error.response?.data || error.message);
@@ -208,11 +196,7 @@ export const uploadFileProject = async (files) => {
       const safeFileName = file.webkitRelativePath || file.name || 'upload';
       formData.append('files', file, safeFileName);
     });
-    const response = await api.post('/upload/project', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/upload/project', formData);
     return response.data;
   } catch (error) {
     console.error('API Error (uploadFileProject):', error.response?.data || error.message);
