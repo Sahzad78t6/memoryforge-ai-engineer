@@ -41,7 +41,6 @@ export default function Sidebar() {
 
   const navItems = [
     { to: '/', label: 'Chat Workspace', icon: MessageSquare },
-    { to: '/knowledge', label: 'Knowledge Center', icon: BrainCircuit },
     { to: '/memories', label: 'Memory Dashboard', icon: Database },
   ];
 
