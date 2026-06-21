@@ -518,7 +518,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading || uploadingFile || backendStatus === 'offline'}
                     className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer shrink-0 mr-1"
-                    title="Upload your project folder or files to use with the coding agent"
+                    title="Upload any local project folder to work with it like a real coding agent"
                   >
                     <Plus size={18} />
                   </button>
@@ -540,7 +540,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                     placeholder={
                       backendStatus === 'offline'
                         ? 'Reconnect to backend to send prompts...'
-                        : 'Ask about your project, code, or build setup'
+                        : 'Ask the agent to inspect, edit, debug, or improve your project'
                     }
                     className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-[#8e8e8e] focus:outline-none disabled:opacity-50"
                   />

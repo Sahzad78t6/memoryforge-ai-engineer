@@ -740,7 +740,7 @@ const AutonomousWorkspace = () => {
                   value={agentPrompt}
                   onChange={(e) => setAgentPrompt(e.target.value)}
                   disabled={agentStatus === 'RUNNING'}
-                  placeholder="Ask the agent to inspect, refactor, or build from your uploaded project folder"
+                  placeholder="Tell the agent what to do with your uploaded project folder, like debug, refactor, or add features"
                   className="w-full h-20 rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500/30 resize-none disabled:opacity-50 font-sans"
                 />
               </div>
