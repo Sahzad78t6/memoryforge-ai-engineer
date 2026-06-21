@@ -527,8 +527,9 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                     ref={fileInputRef}
                     onChange={handleFileUploadChange}
                     style={{ display: 'none' }}
-                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README"
+                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
                   />
+
 
                   {/* Main Prompt Input */}
                   <input

@@ -258,5 +258,46 @@ export const getKnowledgeImage = async (id) => {
   }
 };
 
+export const getWorkspaceFiles = async (directory = ".") => {
+  try {
+    const response = await api.get('/agent/files', { params: { directory } });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getWorkspaceFiles):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getWorkspaceFile = async (path) => {
+  try {
+    const response = await api.get('/agent/file', { params: { path } });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getWorkspaceFile):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const saveWorkspaceFile = async (path, content) => {
+  try {
+    const response = await api.post('/agent/file', { path, content });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (saveWorkspaceFile):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const runWorkspaceCommand = async (command) => {
+  try {
+    const response = await api.post('/agent/command', { command });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (runWorkspaceCommand):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default api;
+
 

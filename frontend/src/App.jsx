@@ -5,7 +5,7 @@ import ChatPage from './pages/ChatPage';
 import MemoryDashboard from './pages/MemoryDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AuthPage from './pages/AuthPage';
-import KnowledgeCenter from './pages/KnowledgeCenter';
+import AutonomousWorkspace from './pages/AutonomousWorkspace';
 
 // Protected Route wrapper to secure Admin control panels
 function ProtectedAdminRoute({ children }) {
@@ -42,7 +42,7 @@ function App() {
             <Route path="/chat" element={<Navigate to="/" replace />} />
             <Route path="/memories" element={<MemoryDashboard />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/knowledge" element={<KnowledgeCenter />} />
+            <Route path="/agent" element={<AutonomousWorkspace />} />
             
             {/* Secured Admin Room */}
             <Route 

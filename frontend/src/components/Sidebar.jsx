@@ -42,7 +42,7 @@ export default function Sidebar() {
 
   const navItems = [
     { to: '/', label: 'Chat Workspace', icon: MessageSquare },
-    { to: '/knowledge', label: 'Knowledge Center', icon: Sparkles },
+    { to: '/agent', label: 'Agent Workspace', icon: Sparkles },
     { to: '/memories', label: 'Memory Dashboard', icon: Database },
   ];
 

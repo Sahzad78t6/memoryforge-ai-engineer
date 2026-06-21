@@ -992,3 +992,87 @@ async def get_knowledge_history(
     except Exception as e:
         logger.error(f"Failed to retrieve knowledge history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/agent/files")
+async def agent_list_files(directory: str = ".", current_user: dict = Depends(auth.get_current_user)):
+    """
+    Returns list of files and directories within the authorized project root directory.
+    """
+    from tools import list_files
+    res = list_files(directory)
+    if not res["success"]:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res["data"]
+
+
+@app.get("/agent/file")
+async def agent_read_file(path: str, current_user: dict = Depends(auth.get_current_user)):
+    """
+    Reads the content of a workspace file relative to the project root.
+    """
+    from tools import read_file
+    res = read_file(path)
+    if not res["success"]:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return {"content": res["data"]}
+
+
+@app.post("/agent/file")
+async def agent_write_file(payload: dict, current_user: dict = Depends(auth.get_current_user)):
+    """
+    Writes updated code content into the specified workspace file.
+    """
+    path = payload.get("path")
+    content = payload.get("content")
+    if not path or content is None:
+        raise HTTPException(status_code=400, detail="Path and content are required.")
+    from tools import write_file
+    res = write_file(path, content)
+    if not res["success"]:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return {"message": res["data"]}
+
+
+@app.post("/agent/command")
+async def agent_run_command(payload: dict, current_user: dict = Depends(auth.get_current_user)):
+    """
+    Runs a shell command inside the project root directory and returns terminal logs.
+    """
+    command = payload.get("command")
+    if not command:
+        raise HTTPException(status_code=400, detail="Command is required.")
+        
+    dangerous = ["rm -rf /", "format", "mkfs", "dd", "shutdown", "reboot"]
+    if any(d in command.lower() for d in dangerous):
+        raise HTTPException(status_code=400, detail="Forbidden command: potentially destructive execution blocked.")
+        
+    import subprocess
+    from tools import PROJECT_ROOT
+    try:
+        process = subprocess.run(
+            command,
+            shell=True,
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+        return {
+            "stdout": process.stdout,
+            "stderr": process.stderr,
+            "exit_code": process.returncode
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "stdout": "",
+            "stderr": "Command execution timed out (limit: 15s)",
+            "exit_code": -1
+        }
+    except Exception as e:
+        return {
+            "stdout": "",
+            "stderr": f"Error running command: {str(e)}",
+            "exit_code": -1
+        }
+
