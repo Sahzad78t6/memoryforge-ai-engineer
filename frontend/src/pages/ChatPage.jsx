@@ -25,7 +25,10 @@ import {
   Plus,
   Mic,
   ArrowUp,
-  X
+  X,
+  Image,
+  FolderArchive,
+  FileText
 } from 'lucide-react';
 
 const ChatPage = () => {
