@@ -87,7 +87,7 @@ with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED) as zip_file:
     zip_file.writestr('README.md', '# Test Microservice\nThis is a sample project for testing ZIP upload. Uses Express and Mongoose.')
 zip_buffer.seek(0)
 zip_files = {
-    "file": ("project_src.zip", zip_buffer, "application/zip")
+    "files": ("project_src.zip", zip_buffer, "application/zip")
 }
 r_zip = requests.post(f"{base_url}/upload/project", files=zip_files, headers=headers)
 print(f"Project Upload Status: {r_zip.status_code}")
