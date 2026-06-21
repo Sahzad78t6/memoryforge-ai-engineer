@@ -1,8 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ChatWindow from '../components/ChatWindow';
 import MemoryPanel from '../components/MemoryPanel';
-import { sendChatMessage, getHealth, createMemory, getMemories, getChatHistory, API_BASE_URL } from '../services/api';
-import { Send, AlertCircle, RefreshCw, Cpu, Database, Play, Sparkles, Check, Info } from 'lucide-react';
+import { 
+  sendChatMessage, 
+  getHealth, 
+  createMemory, 
+  getMemories, 
+  getChatHistory, 
+  API_BASE_URL,
+  uploadFileDoc,
+  uploadFileImage,
+  uploadFileProject
+} from '../services/api';
+import { 
+  Send, 
+  AlertCircle, 
+  RefreshCw, 
+  Cpu, 
+  Database, 
+  Play, 
+  Sparkles, 
+  Check, 
+  Info,
+  Plus,
+  Mic,
+  ArrowUp
+} from 'lucide-react';
 
 const ChatPage = () => {
   const [messages, setMessages] = useState([]);
@@ -16,6 +39,108 @@ const ChatPage = () => {
   // Success Metrics State
   const [storedCount, setStoredCount] = useState(0);
   const [retrievedCount, setRetrievedCount] = useState(0);
+
+  // File Upload Reference & Handler
+  const fileInputRef = useRef(null);
+
+  const handleFileUploadChange = async (e) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    
+    // Add user placeholder message
+    setMessages((prev) => [...prev, { role: 'user', content: `📁 Uploaded file: **${file.name}**` }]);
+    setLoading(true);
+
+    // Add assistant processing placeholder message
+    setMessages((prev) => [...prev, { role: 'assistant', content: `⏳ Ingesting and analyzing "${file.name}"...` }]);
+
+    try {
+      const ext = file.name.split('.').pop().toLowerCase();
+      let response;
+      if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+        response = await uploadFileImage(file);
+      } else if (ext === 'zip') {
+        response = await uploadFileProject(file);
+      } else {
+        response = await uploadFileDoc(file);
+      }
+
+      // Format the AI's analysis response
+      const analysis = response.analysis || {};
+      const summary = analysis.summary || "No summary provided.";
+      const technologies = analysis.technologies?.length > 0 ? analysis.technologies.join(', ') : "None identified";
+      const dependencies = analysis.dependencies?.length > 0 
+        ? analysis.dependencies.map(d => typeof d === 'object' ? `${d.name} (${d.version || 'any'})` : d).join(', ')
+        : "None identified";
+      const architecture = analysis.architecture || "Standard";
+      const decisions = analysis.decisions?.length > 0 
+        ? analysis.decisions.map((d, i) => `\n${i+1}. ${d}`).join('') 
+        : "None cataloged";
+      const security = analysis.security_findings?.length > 0 
+        ? analysis.security_findings.map(s => `\n⚠️ ${s}`).join('')
+        : "✅ No threats detected";
+      const memories = analysis.memories?.length > 0
+        ? analysis.memories.map(m => `\n🧠 *[${m.type}]* ${m.content}`).join('')
+        : "None generated";
+
+      const formattedReply = 
+`📄 **File Ingested: ${file.name}**
+
+**AI Summary:**
+${summary}
+
+🛠️ **Technologies:** ${technologies}
+📦 **Dependencies:** ${dependencies}
+🏗️ **Architecture:** ${architecture}
+
+📐 **Technical Decisions:**
+${decisions}
+
+🔒 **Security Findings:**
+${security}
+
+🧠 **Memories Generated:**
+${memories}`;
+
+      // Update the assistant message with the formatted reply
+      setMessages((prev) => {
+        const next = [...prev];
+        for (let i = next.length - 1; i >= 0; i--) {
+          if (next[i].role === 'assistant' && next[i].content.includes('Ingesting and analyzing')) {
+            next[i] = { role: 'assistant', content: formattedReply };
+            break;
+          }
+        }
+        return next;
+      });
+
+      // Refresh memory list count and layout
+      const mems = await getMemories();
+      setStoredCount(mems.count || 0);
+
+      // Trigger chat history load or update memory panels
+      if (response.memories_created_count > 0) {
+        const latest = await getMemories();
+        setLatestMemories(latest.memories?.slice(-5) || []);
+      }
+    } catch (error) {
+      console.error('File upload error in chat page:', error);
+      const errMsg = error.response?.data?.detail || 'Unexpected error occurred during file ingestion.';
+      setMessages((prev) => {
+        const next = [...prev];
+        for (let i = next.length - 1; i >= 0; i--) {
+          if (next[i].role === 'assistant' && next[i].content.includes('Ingesting and analyzing')) {
+            next[i] = { role: 'assistant', content: `❌ **Failed to ingest "${file.name}":** ${errMsg}` };
+            break;
+          }
+        }
+        return next;
+      });
+    } finally {
+      setLoading(false);
+      e.target.value = null;
+    }
+  };
 
   // Check health, count stored memories, and fetch chat history from DB
   const loadInitialData = async () => {
@@ -213,7 +338,26 @@ const ChatPage = () => {
           {/* Form Input Footer */}
           <div className="border-t border-slate-900 bg-slate-950/40 p-4 shrink-0">
             <form onSubmit={handleFormSubmit} className="mx-auto max-w-4xl">
-              <div className="relative flex items-center rounded-xl border border-slate-800 bg-slate-900/30 px-3 py-1.5 focus-within:border-brand-500/50 focus-within:ring-1 focus-within:ring-brand-500/20 transition-all">
+              <div className="relative flex items-center rounded-full bg-[#212121] border border-transparent focus-within:border-slate-800/80 px-4 py-2 transition-all">
+                {/* File Upload Trigger */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading || backendStatus === 'offline'}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer shrink-0 mr-1"
+                  title="Upload and ingest files/code/projects"
+                >
+                  <Plus size={18} />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUploadChange}
+                  style={{ display: 'none' }}
+                  accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README"
+                />
+
+                {/* Main Prompt Input */}
                 <input
                   type="text"
                   value={input}
@@ -222,18 +366,49 @@ const ChatPage = () => {
                   placeholder={
                     backendStatus === 'offline'
                       ? 'Reconnect to backend to send prompts...'
-                      : 'Ask the Sentient Engineer or use a demo scenario pill below...'
+                      : 'Ask anything'
                   }
-                  className="flex-1 bg-transparent px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none disabled:opacity-50"
+                  className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-[#8e8e8e] focus:outline-none disabled:opacity-50"
                 />
                 
-                <button
-                  type="submit"
-                  disabled={!input.trim() || loading || backendStatus === 'offline'}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white shadow-md shadow-brand-600/10 hover:bg-brand-500 hover:shadow-brand-500/20 disabled:bg-slate-800 disabled:text-slate-550 disabled:shadow-none transition-all duration-200 shrink-0"
-                >
-                  <Send size={16} />
-                </button>
+                {/* Voice & Submit Actions */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => alert("Voice transcription feature is coming soon!")}
+                    disabled={loading || backendStatus === 'offline'}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer"
+                  >
+                    <Mic size={18} />
+                  </button>
+
+                  {input.trim() ? (
+                    <button
+                      type="submit"
+                      disabled={loading || backendStatus === 'offline'}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 shadow-md active:scale-95"
+                    >
+                      <ArrowUp size={18} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => alert("Voice mode features are coming soon!")}
+                      disabled={loading || backendStatus === 'offline'}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="8" y1="5" x2="8" y2="19"></line>
+                        <line x1="12" y1="9" x2="12" y2="15"></line>
+                        <line x1="16" y1="7" x2="16" y2="17"></line>
+                        <line x1="20" y1="10" x2="20" y2="14"></line>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="text-center text-[10px] text-slate-500 mt-2 font-sans selection:bg-transparent">
+                MemoryForge can make mistakes. Verify critical logic and code structures.
               </div>
             </form>
           </div>
