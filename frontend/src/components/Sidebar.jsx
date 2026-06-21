@@ -10,7 +10,8 @@ import {
   User, 
   Settings,
   Menu,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -41,8 +42,10 @@ export default function Sidebar() {
 
   const navItems = [
     { to: '/', label: 'Chat Workspace', icon: MessageSquare },
+    { to: '/knowledge', label: 'Knowledge Center', icon: Sparkles },
     { to: '/memories', label: 'Memory Dashboard', icon: Database },
   ];
+
 
   // If user is ADMIN, append the Admin Portal option
   if (user?.role === 'ADMIN') {

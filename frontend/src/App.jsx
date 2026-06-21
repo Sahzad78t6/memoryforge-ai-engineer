@@ -5,6 +5,7 @@ import ChatPage from './pages/ChatPage';
 import MemoryDashboard from './pages/MemoryDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AuthPage from './pages/AuthPage';
+import KnowledgeCenter from './pages/KnowledgeCenter';
 
 // Protected Route wrapper to secure Admin control panels
 function ProtectedAdminRoute({ children }) {
@@ -18,7 +19,7 @@ function ProtectedAdminRoute({ children }) {
   try {
     const user = JSON.parse(userStr);
     if (user.role !== 'ADMIN') {
-      return <Navigate to="/" replace />;
+      return <Navigate to="/chat" replace />;
     }
   } catch (err) {
     return <Navigate to="/auth" replace />;
@@ -38,8 +39,10 @@ function App() {
         <main className="flex-1 flex flex-col overflow-hidden relative">
           <Routes>
             <Route path="/" element={<ChatPage />} />
+            <Route path="/chat" element={<Navigate to="/" replace />} />
             <Route path="/memories" element={<MemoryDashboard />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/knowledge" element={<KnowledgeCenter />} />
             
             {/* Secured Admin Room */}
             <Route 
@@ -61,3 +64,4 @@ function App() {
 }
 
 export default App;
+

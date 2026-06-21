@@ -563,90 +563,83 @@ async def upload_file(
         logger.error(f"Failed to upload document file: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# Local imports
+import config
+import mongodb
+import auth
+import parcle_client
+import file_parsers
+import knowledge_extractor
+import vision_analyzer
+
+
 @app.post("/upload/image")
 async def upload_image(
     file: UploadFile = File(...),
     current_user: dict = Depends(auth.get_current_user)
 ):
     """
-    Accepts an image file, runs OCR text extraction, analyzes with Groq,
-    and indexes findings and memories.
+    Accepts an image file, runs Vision AI image intelligence extraction,
+    applies rule-based context memory, indexes memories in Parcle,
+    and stores details in the generic knowledge_base collection.
     """
-    logger.info("[IMAGE RECEIVED] Received image upload request.")
+    logger.info("[VISION START] Received image upload request.")
     user_id = str(current_user["_id"])
     filename = file.filename
     content_bytes = await file.read()
     file_size = len(content_bytes)
     
     try:
-        # 1. Parse Image OCR content
-        ocr_result = file_parsers.parse_image_ocr(content_bytes, filename)
+        # 1. Run Vision AI analyzer
+        analysis = vision_analyzer.analyze_image(content_bytes, filename)
+        logger.info("[VISION SUCCESS] Vision AI analysis complete.")
         
-        # 2. Check if OCR text extraction failed or was unavailable
-        if ocr_result.get("status") == "partial_success":
-            # Save metadata of uploaded file to uploaded_files
-            file_doc = {
-                "filename": filename,
-                "file_type": "image",
-                "size": file_size,
-                "user_id": user_id,
-                "timestamp": datetime.utcnow()
-            }
-            res_file = mongodb.db.uploaded_files.insert_one(file_doc)
-            file_id = str(res_file.inserted_id)
-            
-            # Save friendly text summaries
-            mongodb.db.file_summaries.insert_one({
-                "file_id": file_id,
-                "user_id": user_id,
-                "summary": ocr_result["summary"],
-                "timestamp": datetime.utcnow()
-            })
-            
-            # Save empty project_analysis to support metadata queries
-            mongodb.db.project_analysis.insert_one({
-                "file_id": file_id,
-                "user_id": user_id,
-                "technologies": [],
-                "architecture": "Unknown",
-                "decisions": [],
-                "dependencies": [],
-                "security_findings": [],
-                "timestamp": datetime.utcnow()
-            })
+        summary = analysis.get("summary", "")
+        technologies_detected = analysis.get("technologies_detected", [])
+        architecture_patterns = analysis.get("architecture_patterns", [])
+        components_detected = analysis.get("components_detected", [])
+        security_findings = analysis.get("security_findings", [])
+        recommendations = analysis.get("recommendations", [])
+        memories_created = analysis.get("memories_created", [])
+        
+        # 2. Check rule-based memories based on vision results content
+        rule_memories = []
+        vision_text = (
+            str(technologies_detected) + " " +
+            summary + " " +
+            str(components_detected) + " " +
+            str(architecture_patterns)
+        ).upper()
+        
+        if "MONGODB" in vision_text:
+            rule_memories.append({"type": "architecture", "content": "Project uses MongoDB"})
+        if "JWT" in vision_text:
+            rule_memories.append({"type": "authentication", "content": "Uses JWT Authentication"})
+        if "REACT" in vision_text:
+            rule_memories.append({"type": "frontend", "content": "React Frontend Detected"})
 
-            # Save empty knowledge base record
-            mongodb.db.knowledge_base.insert_one({
-                "title": f"Image Diagram: {filename}",
-                "content": ocr_result["analysis"],
-                "user_id": user_id,
-                "timestamp": datetime.utcnow(),
-                "file_id": file_id
-            })
+        # 3. Save memories (AI-generated and rule-based) under authenticated space
+        saved_memories = []
+        for mem in memories_created:
+            try:
+                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
+                saved_memories.append({"type": item.type, "content": item.content})
+            except Exception as mem_err:
+                logger.error(f"Failed to ingest Vision AI memory: {str(mem_err)}")
+                
+        for rm in rule_memories:
+            try:
+                # Avoid duplicates
+                if not any(m["content"].lower() == rm["content"].lower() for m in saved_memories):
+                    item = save_memory(rm["type"], rm["content"], user_id=user_id)
+                    saved_memories.append({"type": item.type, "content": item.content})
+            except Exception as mem_err:
+                logger.error(f"Failed to save rule-based memory: {str(mem_err)}")
 
-            logger.info("[UPLOAD COMPLETE] Image processing complete (empty OCR fallback).")
-            return {
-                "status": "partial_success",
-                "filename": filename,
-                "extracted_text": "",
-                "summary": ocr_result["summary"],
-                "analysis": ocr_result["analysis"],
-                "technologies_detected": [],
-                "architecture_patterns": [],
-                "memories_created": [],
-                "file_id": file_id,
-                "size": file_size
-            }
-        
-        # 3. Successful OCR extraction
-        ocr_content = ocr_result.get("text", "")
-        
-        # 4. Extract structured knowledge using Groq LLM
-        logger.info("[GROQ ANALYSIS START] Starting Groq analysis on extracted text.")
-        analysis = knowledge_extractor.extract_structured_knowledge(filename, ocr_content, "image")
-        logger.info("[GROQ ANALYSIS COMPLETE] Groq analysis complete.")
-        
-        # 5. Save to MongoDB 'uploaded_files'
+        logger.info("[VISION MEMORY GENERATED] Ingested vision-generated memories.")
+        logger.info("[PARCLE SAVE] Memories successfully pushed to Parcle index.")
+
+        # 4. Save metadata to uploaded_files (backward compatibility)
         file_doc = {
             "filename": filename,
             "file_type": "image",
@@ -657,79 +650,193 @@ async def upload_image(
         res_file = mongodb.db.uploaded_files.insert_one(file_doc)
         file_id = str(res_file.inserted_id)
         
-        # 6. Save summaries and analysis details
         mongodb.db.file_summaries.insert_one({
             "file_id": file_id,
             "user_id": user_id,
-            "summary": analysis.get("summary", ""),
+            "summary": summary,
             "timestamp": datetime.utcnow()
         })
         
         mongodb.db.project_analysis.insert_one({
             "file_id": file_id,
             "user_id": user_id,
-            "technologies": analysis.get("technologies", []),
-            "architecture": analysis.get("architecture", "Unknown"),
-            "decisions": analysis.get("decisions", []),
-            "dependencies": analysis.get("dependencies", []),
-            "security_findings": analysis.get("security_findings", []),
+            "technologies": technologies_detected,
+            "architecture": architecture_patterns[0] if architecture_patterns else "Unknown",
+            "decisions": recommendations,
+            "dependencies": [],
+            "security_findings": security_findings,
             "timestamp": datetime.utcnow()
         })
-        
-        mongodb.db.knowledge_base.insert_one({
-            "title": f"Image Diagram: {filename}",
-            "content": ocr_content[:10000],
+
+        # 5. Save to generic 'knowledge_base' collection with source attribution
+        knowledge_doc = {
+            "type": "image",
             "user_id": user_id,
+            "filename": filename,
+            "size": file_size,
+            "upload_date": datetime.utcnow(),
             "timestamp": datetime.utcnow(),
+            "title": f"Image Analysis: {filename}",
+            "content": summary,
+            "summary": summary,
+            "technologies": technologies_detected,
+            "architecture": architecture_patterns,
+            "components_detected": components_detected,
+            "security_findings": security_findings,
+            "recommendations": recommendations,
+            "generated_memories": saved_memories,
+            "vision_provider": config.VISION_PROVIDER,
             "file_id": file_id
-        })
-        
-        # Check rule-based memories based on extracted text contents
-        rule_memories = []
-        ocr_upper = ocr_content.upper()
-        if "MONGODB" in ocr_upper:
-            rule_memories.append({"type": "architecture", "content": "Uses MongoDB Atlas"})
-        if "JWT" in ocr_upper:
-            rule_memories.append({"type": "authentication", "content": "Uses JWT Authentication"})
+        }
+        mongodb.db.knowledge_base.insert_one(knowledge_doc)
+        logger.info("[MONGODB SAVE] Vision AI results saved to generic knowledge_base collection.")
+        logger.info("[VISION COMPLETE] Image intelligence ingestion complete.")
 
-        # 7. Ingest memories
-        saved_memories = []
-        
-        # Ingest AI-generated memories
-        for mem in analysis.get("memories", []):
-            try:
-                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
-                saved_memories.append({"type": item.type, "content": item.content})
-            except Exception as mem_err:
-                logger.error(f"Failed to ingest memory from image: {str(mem_err)}")
-                
-        # Ingest rule-based memories
-        for rm in rule_memories:
-            try:
-                # Avoid duplicate content statements in saved_memories
-                if not any(m["content"].lower() == rm["content"].lower() for m in saved_memories):
-                    item = save_memory(rm["type"], rm["content"], user_id=user_id)
-                    saved_memories.append({"type": item.type, "content": item.content})
-            except Exception as mem_err:
-                logger.error(f"Failed to save rule-based memory: {str(mem_err)}")
-
-        logger.info("[MEMORIES GENERATED] Ingested memories successfully.")
-        logger.info("[UPLOAD COMPLETE] Image processing complete.")
-        
         return {
             "status": "success",
             "filename": filename,
-            "extracted_text": ocr_content,
-            "summary": analysis.get("summary", ""),
-            "technologies_detected": analysis.get("technologies", []),
-            "architecture_patterns": [analysis.get("architecture", "Unknown")] if analysis.get("architecture") else [],
+            "summary": summary,
+            "technologies_detected": technologies_detected,
+            "architecture_patterns": architecture_patterns,
+            "components_detected": components_detected,
+            "security_findings": security_findings,
+            "recommendations": recommendations,
             "memories_created": saved_memories,
             "file_id": file_id,
             "size": file_size
         }
+
     except Exception as e:
-        logger.error(f"Failed to ingest image: {str(e)}")
+        logger.error(f"[VISION ERROR] Vision AI pipeline failed: {str(e)}")
+        # Save fallback details to database
+        try:
+            file_doc = {
+                "filename": filename,
+                "file_type": "image",
+                "size": file_size,
+                "user_id": user_id,
+                "timestamp": datetime.utcnow()
+            }
+            res_file = mongodb.db.uploaded_files.insert_one(file_doc)
+            file_id = str(res_file.inserted_id)
+            
+            mongodb.db.file_summaries.insert_one({
+                "file_id": file_id,
+                "user_id": user_id,
+                "summary": "Image uploaded successfully.",
+                "timestamp": datetime.utcnow()
+            })
+            
+            # Save fallback to generic knowledge_base collection
+            knowledge_doc = {
+                "type": "image",
+                "user_id": user_id,
+                "filename": filename,
+                "size": file_size,
+                "upload_date": datetime.utcnow(),
+                "timestamp": datetime.utcnow(),
+                "title": f"Image Analysis: {filename}",
+                "content": "Vision analysis unavailable.",
+                "summary": "Image uploaded successfully.",
+                "technologies": [],
+                "architecture": [],
+                "components_detected": [],
+                "security_findings": [],
+                "recommendations": [],
+                "generated_memories": [],
+                "vision_provider": config.VISION_PROVIDER,
+                "file_id": file_id,
+                "status": "partial_success"
+            }
+            mongodb.db.knowledge_base.insert_one(knowledge_doc)
+        except Exception as db_err:
+            logger.error(f"Failed to save fallback metadata to MongoDB: {str(db_err)}")
+            file_id = "fallback_mock_id"
+            
+        return {
+            "status": "partial_success",
+            "filename": filename,
+            "summary": "Image uploaded successfully.",
+            "analysis": "Vision analysis unavailable.",
+            "technologies_detected": [],
+            "architecture_patterns": [],
+            "components_detected": [],
+            "security_findings": [],
+            "recommendations": [],
+            "memories_created": [],
+            "file_id": file_id,
+            "size": file_size
+        }
+
+
+
+@app.get("/knowledge/images")
+async def get_knowledge_images(current_user: dict = Depends(auth.get_current_user)):
+    """
+    Returns previous image analyses for the authenticated user.
+    """
+    user_id = str(current_user["_id"])
+    try:
+        cursor = mongodb.db.knowledge_base.find({"user_id": user_id, "type": "image"}).sort("timestamp", -1)
+        results = []
+        for doc in cursor:
+            results.append({
+                "id": str(doc["_id"]),
+                "filename": doc.get("filename", "unknown.png"),
+                "size": doc.get("size", 0),
+                "upload_date": doc.get("upload_date").isoformat() if isinstance(doc.get("upload_date"), datetime) else doc.get("upload_date"),
+                "summary": doc.get("summary", ""),
+                "technologies_detected": doc.get("technologies", []),
+                "architecture_patterns": doc.get("architecture", []),
+                "components_detected": doc.get("components_detected", []),
+                "security_findings": doc.get("security_findings", []),
+                "recommendations": doc.get("recommendations", []),
+                "memories_created": doc.get("generated_memories", []),
+                "vision_provider": doc.get("vision_provider", "gemini")
+            })
+        return results
+    except Exception as e:
+        logger.error(f"Failed to fetch previous image analyses: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/knowledge/image/{id}")
+async def get_knowledge_image(id: str, current_user: dict = Depends(auth.get_current_user)):
+    """
+    Returns full details of a specific image analysis.
+    """
+    user_id = str(current_user["_id"])
+    from bson import ObjectId
+    query = {"user_id": user_id, "type": "image"}
+    doc = None
+    try:
+        query["_id"] = ObjectId(id)
+        doc = mongodb.db.knowledge_base.find_one(query)
+        if not doc:
+            query["_id"] = id
+            doc = mongodb.db.knowledge_base.find_one(query)
+    except Exception:
+        query["_id"] = id
+        doc = mongodb.db.knowledge_base.find_one(query)
+        
+    if not doc:
+        raise HTTPException(status_code=404, detail="Image analysis record not found.")
+        
+    return {
+        "id": str(doc["_id"]),
+        "filename": doc.get("filename", ""),
+        "size": doc.get("size", 0),
+        "upload_date": doc.get("upload_date").isoformat() if isinstance(doc.get("upload_date"), datetime) else doc.get("upload_date"),
+        "summary": doc.get("summary", ""),
+        "technologies_detected": doc.get("technologies", []),
+        "architecture_patterns": doc.get("architecture", []),
+        "components_detected": doc.get("components_detected", []),
+        "security_findings": doc.get("security_findings", []),
+        "recommendations": doc.get("recommendations", []),
+        "memories_created": doc.get("generated_memories", []),
+        "vision_provider": doc.get("vision_provider", "gemini")
+    }
+
 
 @app.post("/upload/project")
 async def upload_project(

@@ -238,4 +238,25 @@ export const getKnowledgeHistory = async () => {
   }
 };
 
+export const getKnowledgeImages = async () => {
+  try {
+    const response = await api.get('/knowledge/images');
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getKnowledgeImages):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getKnowledgeImage = async (id) => {
+  try {
+    const response = await api.get(`/knowledge/image/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getKnowledgeImage):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default api;
+

@@ -13,6 +13,9 @@ PARCLE_API_KEY = os.getenv("PARCLE_API_KEY")
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "memoryforge")
 JWT_SECRET = os.getenv("JWT_SECRET", "memoryforge-super-secret-key-1234567890")
+VISION_PROVIDER = os.getenv("VISION_PROVIDER", "gemini")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def validate_config() -> None:
@@ -25,6 +28,11 @@ def validate_config() -> None:
         missing_vars.append("GROQ_API_KEY")
     if not PARCLE_API_KEY:
         missing_vars.append("PARCLE_API_KEY")
+    
+    if VISION_PROVIDER == "gemini" and not GEMINI_API_KEY:
+        missing_vars.append("GEMINI_API_KEY")
+    elif VISION_PROVIDER == "openai" and not OPENAI_API_KEY:
+        missing_vars.append("OPENAI_API_KEY")
         
     if missing_vars:
         raise ValueError(
@@ -34,3 +42,4 @@ def validate_config() -> None:
 
 # Automatically validate on import to ensure immediate failure on configuration issues
 validate_config()
+
