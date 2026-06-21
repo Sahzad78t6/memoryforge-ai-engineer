@@ -27,7 +27,8 @@ import {
   getWorkspaceFiles, 
   getWorkspaceFile, 
   saveWorkspaceFile, 
-  runWorkspaceCommand 
+  runWorkspaceCommand,
+  uploadFileProject
 } from '../services/api';
 
 const AutonomousWorkspace = () => {
@@ -67,6 +68,11 @@ const AutonomousWorkspace = () => {
   const textareaRef = useRef(null);
   const terminalEndRef = useRef(null);
   const agentLogEndRef = useRef(null);
+  const uploadInputRef = useRef(null);
+
+  // Upload state
+  const [uploadingProject, setUploadingProject] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
 
   // Fetch Root Files initially
   const loadRootFiles = async () => {
@@ -75,11 +81,34 @@ const AutonomousWorkspace = () => {
     try {
       const res = await getWorkspaceFiles('.');
       setFolderContents({ '.': res });
+      setUploadMessage('');
     } catch (err) {
       console.error('Failed to load workspace files:', err);
       setExplorerError('Failed to fetch workspace structure. Verify backend server status.');
     } finally {
       setLoadingFiles(false);
+    }
+  };
+
+  const handleProjectUpload = async (e) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const selectedFiles = Array.from(e.target.files);
+    setUploadingProject(true);
+    setUploadMessage('Uploading project files...');
+
+    try {
+      const response = await uploadFileProject(selectedFiles);
+      setUploadMessage(
+        `Uploaded ${response.files_in_workspace || selectedFiles.length} file(s) into the workspace.`
+      );
+      await loadRootFiles();
+    } catch (err) {
+      console.error('Project upload failed:', err);
+      setUploadMessage(err.response?.data?.detail || 'Upload failed. Please try again.');
+    } finally {
+      setUploadingProject(false);
+      e.target.value = null;
     }
   };
 
@@ -511,6 +540,16 @@ const AutonomousWorkspace = () => {
               Subprocess Channel Connected
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => uploadInputRef.current?.click()}
+            disabled={uploadingProject}
+            className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer disabled:opacity-50"
+            title="Upload a project folder or files"
+          >
+            {uploadingProject ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+            <span>{uploadingProject ? 'Uploading...' : 'Upload Project'}</span>
+          </button>
           <button 
             onClick={loadRootFiles}
             className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer text-xs"
@@ -519,8 +558,24 @@ const AutonomousWorkspace = () => {
             <RefreshCw size={12} className={loadingFiles ? "animate-spin text-indigo-400" : ""} />
             <span className="hidden sm:inline font-mono">Sync</span>
           </button>
+          <input
+            ref={uploadInputRef}
+            type="file"
+            multiple
+            directory=""
+            webkitdirectory=""
+            onChange={handleProjectUpload}
+            className="hidden"
+            accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
+          />
         </div>
       </div>
+
+      {uploadMessage && (
+        <div className="border-b border-slate-900 bg-slate-950/60 px-6 py-2 text-[11px] text-slate-300">
+          {uploadMessage}
+        </div>
+      )}
 
       {/* Main Grid: File Tree, Code Editor / Console, Agent HUD */}
       <div className="flex flex-1 overflow-hidden relative">
