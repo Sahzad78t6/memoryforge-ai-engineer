@@ -49,7 +49,14 @@ def ensure_user_exists(user_id: str) -> None:
         # Ignore errors (e.g. 409 Conflict if user already exists)
         pass
 
-def save_to_parcle(user_id: str, memory_type: str, content: str, max_retries: int = 3) -> bool:
+def save_to_parcle(
+    user_id: str,
+    memory_type: str,
+    content: str,
+    source_filename: Optional[str] = None,
+    created_at: Optional[str] = None,
+    max_retries: int = 3
+) -> bool:
     """
     Appends a new memory record to Parcle with type tag category.
     Implements simple exponential backoff for resilience against transient errors.
@@ -58,12 +65,18 @@ def save_to_parcle(user_id: str, memory_type: str, content: str, max_retries: in
     client = get_client()
     delay = 1.0
     
+    tag = {"type": memory_type}
+    if source_filename:
+        tag["source_filename"] = source_filename
+    if created_at:
+        tag["created_at"] = created_at
+    
     for attempt in range(max_retries):
         try:
             client.ingest_dialog(
                 user_id=user_id,
                 messages=[{"role": "user", "content": content}],
-                tag={"type": memory_type}
+                tag=tag
             )
             return True
         except Exception as e:
@@ -119,7 +132,14 @@ def search_in_parcle(user_id: str, query: str, max_retries: int = 3) -> List[Mem
             if session and session.messages:
                 m_type = session.tag.get("type", "conversation") if session.tag else "conversation"
                 content = session.messages[0].content
-                memories.append(MemoryItem(type=m_type, content=content))
+                src_fn = session.tag.get("source_filename") if session.tag else None
+                cr_at = session.tag.get("created_at") if session.tag else None
+                memories.append(MemoryItem(
+                    type=m_type,
+                    content=content,
+                    source_filename=src_fn,
+                    created_at=cr_at
+                ))
                 
     return memories
 
@@ -154,7 +174,14 @@ def list_all_parcle_memories(user_id: str, max_retries: int = 3) -> List[MemoryI
                 if session and session.messages:
                     m_type = session.tag.get("type", "conversation") if session.tag else "conversation"
                     content = session.messages[0].content
-                    memories.append(MemoryItem(type=m_type, content=content))
+                    src_fn = session.tag.get("source_filename") if session.tag else None
+                    cr_at = session.tag.get("created_at") if session.tag else None
+                    memories.append(MemoryItem(
+                        type=m_type,
+                        content=content,
+                        source_filename=src_fn,
+                        created_at=cr_at
+                    ))
                 break
             except Exception as e:
                 if attempt == max_retries - 1:

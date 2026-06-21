@@ -143,6 +143,7 @@ async def register(user_data: UserRegister):
             "role": user_data.role.upper() if user_data.role else "USER",
             "created_at": datetime.utcnow()
         }
+        logger.info("[USER CREATED] User schema constructed in memory.")
         
         # Saving user
         logger.info(f"[SAVING USER] Inserting document for {user_doc['email']} into collection '{collection_name}' in database '{db_name}'.")
@@ -226,11 +227,11 @@ async def get_users(admin_user: dict = Depends(auth.get_admin_user)):
 # --- Memories API ---
 
 @app.get("/memories", response_model=MemoriesResponse)
-async def memories(current_user: Optional[dict] = Depends(get_optional_user)):
+async def memories(current_user: dict = Depends(auth.get_current_user)):
     """
     Retrieves all persistent memories from MongoDB / Parcle.
     """
-    user_id = str(current_user["_id"]) if current_user else "default_user"
+    user_id = str(current_user["_id"])
     try:
         items = get_all_memories(user_id=user_id)
         return MemoriesResponse(count=len(items), memories=items)
@@ -239,11 +240,11 @@ async def memories(current_user: Optional[dict] = Depends(get_optional_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/memories", response_model=MemoryItem)
-async def create_memory(memory: MemoryItem, current_user: Optional[dict] = Depends(get_optional_user)):
+async def create_memory(memory: MemoryItem, current_user: dict = Depends(auth.get_current_user)):
     """
     Saves a memory in both MongoDB and Parcle under the caller's space.
     """
-    user_id = str(current_user["_id"]) if current_user else "default_user"
+    user_id = str(current_user["_id"])
     try:
         return save_memory(memory.type, memory.content, user_id=user_id)
     except Exception as e:
@@ -253,11 +254,11 @@ async def create_memory(memory: MemoryItem, current_user: Optional[dict] = Depen
 # --- Knowledge Base API ---
 
 @app.post("/knowledge", response_model=KnowledgeItem)
-async def create_knowledge(item: KnowledgeItem, current_user: Optional[dict] = Depends(get_optional_user)):
+async def create_knowledge(item: KnowledgeItem, current_user: dict = Depends(auth.get_current_user)):
     """
     Adds a knowledge record in MongoDB Atlas and optionally registers search vectors in Parcle.
     """
-    user_id = str(current_user["_id"]) if current_user else "default_user"
+    user_id = str(current_user["_id"])
     try:
         knowledge_doc = {
             "title": item.title,
@@ -280,11 +281,11 @@ async def create_knowledge(item: KnowledgeItem, current_user: Optional[dict] = D
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/knowledge", response_model=KnowledgeResponse)
-async def list_knowledge(current_user: Optional[dict] = Depends(get_optional_user)):
+async def list_knowledge(current_user: dict = Depends(auth.get_current_user)):
     """
     Lists knowledge documents.
     """
-    user_id = str(current_user["_id"]) if current_user else "default_user"
+    user_id = str(current_user["_id"])
     try:
         db_items = mongodb.db.knowledge_base.find({"user_id": user_id})
         knowledge = []
@@ -304,12 +305,12 @@ async def list_knowledge(current_user: Optional[dict] = Depends(get_optional_use
 @app.post("/documents/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    current_user: Optional[dict] = Depends(get_optional_user)
+    current_user: dict = Depends(auth.get_current_user)
 ):
     """
     Uploads a txt, md, readme, pdf document, saves metadata in Atlas and indexes into Parcle memory.
     """
-    user_id = str(current_user["_id"]) if current_user else "default_user"
+    user_id = str(current_user["_id"])
     try:
         content_bytes = await file.read()
         filename = file.filename
@@ -362,7 +363,7 @@ async def upload_document(
 # --- Chat & Chat History API ---
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, current_user: Optional[dict] = Depends(get_optional_user)):
+async def chat(request: ChatRequest, current_user: dict = Depends(auth.get_current_user)):
     """
     Processes chat prompts with multi-user workspace retrieval.
     Stores interaction history in MongoDB.
@@ -370,7 +371,7 @@ async def chat(request: ChatRequest, current_user: Optional[dict] = Depends(get_
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message content cannot be empty.")
         
-    user_id = str(current_user["_id"]) if current_user else "default_user"
+    user_id = str(current_user["_id"])
     try:
         # Search relevant memory context (which triggers analytics tracking)
         relevant_memories = search_memory(request.message, user_id=user_id)
@@ -400,11 +401,11 @@ async def chat(request: ChatRequest, current_user: Optional[dict] = Depends(get_
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/chat/history")
-async def chat_history(current_user: Optional[dict] = Depends(get_optional_user)):
+async def chat_history(current_user: dict = Depends(auth.get_current_user)):
     """
     Retrieves previous dialogue history from MongoDB Atlas.
     """
-    user_id = str(current_user["_id"]) if current_user else "default_user"
+    user_id = str(current_user["_id"])
     try:
         cursor = mongodb.db.chat_history.find({"user_id": user_id}).sort("timestamp", 1)
         history = []
@@ -423,7 +424,7 @@ async def chat_history(current_user: Optional[dict] = Depends(get_optional_user)
 # --- Analytics API ---
 
 @app.get("/analytics")
-async def get_analytics(current_user: Optional[dict] = Depends(get_optional_user)):
+async def get_analytics(current_user: dict = Depends(auth.get_current_user)):
     """
     Returns analytics widgets containing user roles, database document sizes, memory categories, and top search topics.
     """
@@ -495,16 +496,18 @@ async def upload_file(
     analyzes with Groq, saves structured findings in Atlas, and
     saves generated memories to MongoDB and Parcle.
     """
+    logger.info(f"[UPLOAD RECEIVED] Ingesting single file: {file.filename}")
     user_id = str(current_user["_id"])
     filename = file.filename
-    content_bytes = await file.read()
-    file_size = len(content_bytes)
-    
-    # 1. Parse text based on extension
-    ext = filename.split(".")[-1].lower() if "." in filename else ""
-    content_text = ""
     
     try:
+        content_bytes = await file.read()
+        file_size = len(content_bytes)
+        
+        # 1. Parse text based on extension
+        ext = filename.split(".")[-1].lower() if "." in filename else ""
+        content_text = ""
+        
         if ext == "pdf":
             content_text = file_parsers.parse_pdf(content_bytes)
         elif ext == "docx":
@@ -553,35 +556,67 @@ async def upload_file(
             "timestamp": datetime.utcnow()
         })
         
-        # 6. Save to 'knowledge_base'
+        # 6. Ingest memory items (pass filename as source_filename)
+        saved_memories = []
+        for mem in analysis.get("memories", []):
+            try:
+                item = save_memory(
+                    memory_type=mem.get("type", "architecture"),
+                    content=mem.get("content", ""),
+                    user_id=user_id,
+                    source_filename=filename
+                )
+                saved_memories.append(item)
+            except Exception as mem_err:
+                logger.error(f"Failed to ingest memory during upload: {str(mem_err)}")
+        
+        # 7. Unified save to 'knowledge_base'
+        kb_memories = [{"type": m.type, "content": m.content, "source_filename": m.source_filename, "created_at": m.created_at} for m in saved_memories]
         mongodb.db.knowledge_base.insert_one({
+            "user_id": user_id,
+            "source_type": "file",
+            "filename": filename,
+            "summary": analysis.get("summary", ""),
+            "technologies": analysis.get("technologies", []),
+            "architecture": analysis.get("architecture", "Unknown"),
+            "recommendations": analysis.get("decisions", []),
+            "generated_memories": kb_memories,
+            "created_at": datetime.utcnow(),
+            # Legacy fields:
             "title": f"Document: {filename}",
             "content": content_text[:10000],
-            "user_id": user_id,
+            "type": "file",
             "timestamp": datetime.utcnow(),
             "file_id": file_id
         })
         
-        # 7. Ingest memory items
-        saved_memories = []
-        for mem in analysis.get("memories", []):
-            try:
-                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
-                saved_memories.append(item)
-            except Exception as mem_err:
-                logger.error(f"Failed to ingest memory during upload: {str(mem_err)}")
-                
+        logger.info(f"[UPLOAD COMPLETE] Successfully processed and ingested file: {filename}")
         return {
-            "file_id": file_id,
+            "status": "success",
+            "source_type": "file",
             "filename": filename,
+            "summary": analysis.get("summary", ""),
+            "technologies": analysis.get("technologies", []),
+            "memories": kb_memories,
+            # Backward compatibility fields:
+            "file_id": file_id,
             "size": file_size,
             "analysis": analysis,
-            "memories_created_count": len(saved_memories)
+            "extracted_text": content_text,
+            "technologies_detected": analysis.get("technologies", []),
+            "memories_created": kb_memories
         }
         
     except Exception as e:
-        logger.error(f"Failed to upload document file: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[ERROR] Failed to upload document file: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "detail": str(e),
+                "message": "Failed to upload and ingest file."
+            }
+        )
 
 # Local imports
 import config
@@ -603,17 +638,92 @@ async def upload_image(
     applies rule-based context memory, indexes memories in Parcle,
     and stores details in the generic knowledge_base collection.
     """
-    logger.info("[VISION START] Received image upload request.")
+    logger.info(f"[UPLOAD RECEIVED] Ingesting image: {file.filename}")
     user_id = str(current_user["_id"])
     filename = file.filename
-    content_bytes = await file.read()
-    file_size = len(content_bytes)
     
     try:
-        # 1. Run Vision AI analyzer
-        analysis = vision_analyzer.analyze_image(content_bytes, filename)
-        logger.info("[VISION SUCCESS] Vision AI analysis complete.")
+        content_bytes = await file.read()
+        file_size = len(content_bytes)
         
+        # 1. Run Vision AI analyzer with graceful fallback on failure
+        try:
+            analysis = vision_analyzer.analyze_image(content_bytes, filename)
+            logger.info("[VISION SUCCESS] Vision AI analysis complete.")
+            vision_failed = False
+        except Exception as vision_err:
+            logger.error(f"[ERROR] Vision AI pipeline failed: {str(vision_err)}", exc_info=True)
+            vision_failed = True
+            
+        if vision_failed:
+            # Save fallback details to database
+            try:
+                file_doc = {
+                    "filename": filename,
+                    "file_type": "image",
+                    "size": file_size,
+                    "user_id": user_id,
+                    "timestamp": datetime.utcnow()
+                }
+                res_file = mongodb.db.uploaded_files.insert_one(file_doc)
+                file_id = str(res_file.inserted_id)
+                
+                mongodb.db.file_summaries.insert_one({
+                    "file_id": file_id,
+                    "user_id": user_id,
+                    "summary": "Image uploaded successfully. Vision analysis unavailable.",
+                    "timestamp": datetime.utcnow()
+                })
+                
+                # Save fallback to generic knowledge_base collection
+                knowledge_doc = {
+                    "user_id": user_id,
+                    "source_type": "image",
+                    "filename": filename,
+                    "summary": "Image uploaded successfully. Vision analysis unavailable.",
+                    "technologies": [],
+                    "architecture": [],
+                    "recommendations": [],
+                    "generated_memories": [],
+                    "created_at": datetime.utcnow(),
+                    # Legacy fields
+                    "type": "image",
+                    "size": file_size,
+                    "upload_date": datetime.utcnow(),
+                    "timestamp": datetime.utcnow(),
+                    "title": f"Image Analysis: {filename}",
+                    "content": "Vision analysis unavailable.",
+                    "components_detected": [],
+                    "security_findings": [],
+                    "vision_provider": config.VISION_PROVIDER,
+                    "file_id": file_id,
+                    "status": "partial_success"
+                }
+                mongodb.db.knowledge_base.insert_one(knowledge_doc)
+            except Exception as db_err:
+                logger.error(f"[ERROR] Failed to save fallback metadata to MongoDB: {str(db_err)}", exc_info=True)
+                file_id = "fallback_mock_id"
+                
+            logger.info(f"[UPLOAD COMPLETE] Successfully processed image upload with vision fallback: {filename}")
+            return {
+                "status": "partial_success",
+                "source_type": "image",
+                "filename": filename,
+                "summary": "Image uploaded successfully.",
+                "technologies": [],
+                "memories": [],
+                # Backward compatibility:
+                "analysis": "Vision analysis unavailable.",
+                "technologies_detected": [],
+                "architecture_patterns": [],
+                "components_detected": [],
+                "security_findings": [],
+                "recommendations": [],
+                "memories_created": [],
+                "file_id": file_id,
+                "size": file_size
+            }
+            
         summary = analysis.get("summary", "")
         technologies_detected = analysis.get("technologies_detected", [])
         architecture_patterns = analysis.get("architecture_patterns", [])
@@ -638,12 +748,17 @@ async def upload_image(
         if "REACT" in vision_text:
             rule_memories.append({"type": "frontend", "content": "React Frontend Detected"})
 
-        # 3. Save memories (AI-generated and rule-based) under authenticated space
+        # 3. Save memories (AI-generated and rule-based) under authenticated space with source attribution
         saved_memories = []
         for mem in memories_created:
             try:
-                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
-                saved_memories.append({"type": item.type, "content": item.content})
+                item = save_memory(
+                    memory_type=mem.get("type", "architecture"),
+                    content=mem.get("content", ""),
+                    user_id=user_id,
+                    source_filename=filename
+                )
+                saved_memories.append({"type": item.type, "content": item.content, "source_filename": item.source_filename, "created_at": item.created_at})
             except Exception as mem_err:
                 logger.error(f"Failed to ingest Vision AI memory: {str(mem_err)}")
                 
@@ -651,8 +766,13 @@ async def upload_image(
             try:
                 # Avoid duplicates
                 if not any(m["content"].lower() == rm["content"].lower() for m in saved_memories):
-                    item = save_memory(rm["type"], rm["content"], user_id=user_id)
-                    saved_memories.append({"type": item.type, "content": item.content})
+                    item = save_memory(
+                        memory_type=rm["type"],
+                        content=rm["content"],
+                        user_id=user_id,
+                        source_filename=filename
+                    )
+                    saved_memories.append({"type": item.type, "content": item.content, "source_filename": item.source_filename, "created_at": item.created_at})
             except Exception as mem_err:
                 logger.error(f"Failed to save rule-based memory: {str(mem_err)}")
 
@@ -690,103 +810,59 @@ async def upload_image(
 
         # 5. Save to generic 'knowledge_base' collection with source attribution
         knowledge_doc = {
-            "type": "image",
             "user_id": user_id,
+            "source_type": "image",
             "filename": filename,
+            "summary": summary,
+            "technologies": technologies_detected,
+            "architecture": architecture_patterns,
+            "recommendations": recommendations,
+            "generated_memories": saved_memories,
+            "created_at": datetime.utcnow(),
+            # Legacy fields:
+            "type": "image",
             "size": file_size,
             "upload_date": datetime.utcnow(),
             "timestamp": datetime.utcnow(),
             "title": f"Image Analysis: {filename}",
             "content": summary,
-            "summary": summary,
-            "technologies": technologies_detected,
-            "architecture": architecture_patterns,
             "components_detected": components_detected,
             "security_findings": security_findings,
-            "recommendations": recommendations,
-            "generated_memories": saved_memories,
             "vision_provider": config.VISION_PROVIDER,
             "file_id": file_id
         }
         mongodb.db.knowledge_base.insert_one(knowledge_doc)
         logger.info("[MONGODB SAVE] Vision AI results saved to generic knowledge_base collection.")
-        logger.info("[VISION COMPLETE] Image intelligence ingestion complete.")
+        logger.info(f"[UPLOAD COMPLETE] Successfully processed and ingested image: {filename}")
 
         return {
             "status": "success",
+            "source_type": "image",
             "filename": filename,
             "summary": summary,
+            "technologies": technologies_detected,
+            "memories": saved_memories,
+            # Backward compatibility fields:
+            "file_id": file_id,
+            "size": file_size,
             "technologies_detected": technologies_detected,
             "architecture_patterns": architecture_patterns,
             "components_detected": components_detected,
             "security_findings": security_findings,
             "recommendations": recommendations,
-            "memories_created": saved_memories,
-            "file_id": file_id,
-            "size": file_size
+            "memories_created": saved_memories
         }
 
     except Exception as e:
-        logger.error(f"[VISION ERROR] Vision AI pipeline failed: {str(e)}")
-        # Save fallback details to database
-        try:
-            file_doc = {
-                "filename": filename,
-                "file_type": "image",
-                "size": file_size,
-                "user_id": user_id,
-                "timestamp": datetime.utcnow()
+        logger.error(f"[ERROR] Vision AI pipeline failed: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "detail": str(e),
+                "message": "Failed to upload and ingest image."
             }
-            res_file = mongodb.db.uploaded_files.insert_one(file_doc)
-            file_id = str(res_file.inserted_id)
-            
-            mongodb.db.file_summaries.insert_one({
-                "file_id": file_id,
-                "user_id": user_id,
-                "summary": "Image uploaded successfully.",
-                "timestamp": datetime.utcnow()
-            })
-            
-            # Save fallback to generic knowledge_base collection
-            knowledge_doc = {
-                "type": "image",
-                "user_id": user_id,
-                "filename": filename,
-                "size": file_size,
-                "upload_date": datetime.utcnow(),
-                "timestamp": datetime.utcnow(),
-                "title": f"Image Analysis: {filename}",
-                "content": "Vision analysis unavailable.",
-                "summary": "Image uploaded successfully.",
-                "technologies": [],
-                "architecture": [],
-                "components_detected": [],
-                "security_findings": [],
-                "recommendations": [],
-                "generated_memories": [],
-                "vision_provider": config.VISION_PROVIDER,
-                "file_id": file_id,
-                "status": "partial_success"
-            }
-            mongodb.db.knowledge_base.insert_one(knowledge_doc)
-        except Exception as db_err:
-            logger.error(f"Failed to save fallback metadata to MongoDB: {str(db_err)}")
-            file_id = "fallback_mock_id"
-            
-        return {
-            "status": "partial_success",
-            "filename": filename,
-            "summary": "Image uploaded successfully.",
-            "analysis": "Vision analysis unavailable.",
-            "technologies_detected": [],
-            "architecture_patterns": [],
-            "components_detected": [],
-            "security_findings": [],
-            "recommendations": [],
-            "memories_created": [],
-            "file_id": file_id,
-            "size": file_size
-        }
+        )
 
 
 
@@ -867,6 +943,7 @@ async def upload_project(
     Accepts one or more uploaded project files/folders and stores them in a per-user workspace.
     ZIP archives are unpacked so the agent APIs can read and edit them directly.
     """
+    logger.info("[UPLOAD RECEIVED] Ingesting project ZIP or files")
     if not files:
         raise HTTPException(status_code=400, detail="At least one file must be uploaded.")
 
@@ -973,33 +1050,66 @@ async def upload_project(
             "timestamp": datetime.utcnow()
         })
         
-        mongodb.db.knowledge_base.insert_one({
-            "title": f"Project Workspace: {zip_filename or first_filename}",
-            "content": f"Uploaded project files and workspace contents for {zip_filename or first_filename}",
-            "user_id": user_id,
-            "timestamp": datetime.utcnow(),
-            "file_id": file_id
-        })
-        
         saved_memories = []
         for mem in analysis.get("memories", []):
             try:
-                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
+                item = save_memory(
+                    memory_type=mem.get("type", "architecture"),
+                    content=mem.get("content", ""),
+                    user_id=user_id,
+                    source_filename=zip_filename or first_filename
+                )
                 saved_memories.append(item)
             except Exception as mem_err:
                 logger.error(f"Failed to ingest memory from uploaded project: {str(mem_err)}")
         
-        return {
-            "file_id": file_id,
+        kb_memories = [{"type": m.type, "content": m.content, "source_filename": m.source_filename, "created_at": m.created_at} for m in saved_memories]
+        
+        # Unified database insertion into 'knowledge_base'
+        mongodb.db.knowledge_base.insert_one({
+            "user_id": user_id,
+            "source_type": "project",
             "filename": zip_filename or first_filename,
+            "summary": analysis.get("summary", ""),
+            "technologies": analysis.get("technologies", []),
+            "architecture": analysis.get("architecture", "Unknown"),
+            "recommendations": analysis.get("decisions", []),
+            "generated_memories": kb_memories,
+            "created_at": datetime.utcnow(),
+            # Legacy keys:
+            "title": f"Project Workspace: {zip_filename or first_filename}",
+            "content": f"Uploaded project files and workspace contents for {zip_filename or first_filename}",
+            "type": "project",
+            "timestamp": datetime.utcnow(),
+            "file_id": file_id
+        })
+        
+        logger.info(f"[UPLOAD COMPLETE] Successfully processed and ingested project: {zip_filename or first_filename}")
+        return {
+            "status": "success",
+            "source_type": "project",
+            "filename": zip_filename or first_filename,
+            "summary": analysis.get("summary", ""),
+            "technologies": analysis.get("technologies", []),
+            "memories": kb_memories,
+            # Backward compatibility fields:
+            "file_id": file_id,
             "project_root": str(project_root_path),
             "files_in_workspace": file_count,
             "analysis": analysis,
-            "memories_created_count": len(saved_memories)
+            "memories_created_count": len(saved_memories),
+            "memories_created": kb_memories
         }
     except Exception as e:
-        logger.error(f"Failed to ingest project: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[ERROR] Failed to ingest project: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "detail": str(e),
+                "message": "Failed to upload and ingest project."
+            }
+        )
 
 @app.get("/knowledge/search")
 async def search_knowledge(

@@ -16,7 +16,12 @@ def generate_response(message: str, memory_context: List[MemoryItem]) -> str:
     if memory_context:
         formatted_context = ""
         for i, item in enumerate(memory_context, 1):
-            formatted_context += f"{i}. [{item.type.upper()}] {item.content}\n"
+            source_info = ""
+            if item.source_filename:
+                source_info += f" (Source: {item.source_filename})"
+            if item.created_at:
+                source_info += f" (Created: {item.created_at})"
+            formatted_context += f"{i}. [{item.type.upper()}] {item.content}{source_info}\n"
     else:
         formatted_context = "No previous memory context available."
 
@@ -26,7 +31,8 @@ def generate_response(message: str, memory_context: List[MemoryItem]) -> str:
         "You are an AI software engineer with persistent memory.\n\n"
         "Before answering, always review the provided memory context.\n"
         "Use previous architectural decisions, bug fixes, coding standards, and team preferences whenever relevant.\n"
-        "Maintain consistency with prior decisions unless the user explicitly changes them.\n\n"
+        "Maintain consistency with prior decisions unless the user explicitly changes them.\n"
+        "When answering, reference previous architectural decisions or standards from memories by citing their source file if a Source is listed (e.g. 'based on the diagram in architecture_diagram.png').\n\n"
         "Memory Context:\n"
         f"{formatted_context.strip()}\n\n"
         "User Request:\n"

@@ -28,6 +28,15 @@ function ProtectedAdminRoute({ children }) {
   return children;
 }
 
+// Protected Route wrapper for general authenticated users
+function ProtectedRoute({ children }) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return <Navigate to="/auth" replace />;
+  }
+  return children;
+}
+
 function App() {
   return (
     <Router>
@@ -38,11 +47,32 @@ function App() {
         {/* Page Render Workspace */}
         <main className="flex-1 flex flex-col overflow-hidden relative">
           <Routes>
-            <Route path="/" element={<ChatPage />} />
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <ChatPage />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="/chat" element={<Navigate to="/" replace />} />
-            <Route path="/memories" element={<MemoryDashboard />} />
+            <Route 
+              path="/memories" 
+              element={
+                <ProtectedRoute>
+                  <MemoryDashboard />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/agent" element={<AutonomousWorkspace />} />
+            <Route 
+              path="/agent" 
+              element={
+                <ProtectedRoute>
+                  <AutonomousWorkspace />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Secured Admin Room */}
             <Route 

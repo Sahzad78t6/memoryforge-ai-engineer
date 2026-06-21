@@ -33,28 +33,34 @@ const MemoryDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  const validMemories = Array.isArray(memories) ? memories.filter(Boolean) : [];
+
   // Categorize helper totals
   const stats = {
-    total: memories.length,
-    architecture: memories.filter((m) => m.type?.toLowerCase() === 'architecture').length,
-    coding_standard: memories.filter((m) => m.type?.toLowerCase() === 'coding_standard').length,
-    bug_fix: memories.filter((m) => m.type?.toLowerCase() === 'bug_fix').length,
-    team_preference: memories.filter((m) => m.type?.toLowerCase() === 'team_preference').length,
-    conversation: memories.filter((m) => m.type?.toLowerCase() === 'conversation').length,
+    total: validMemories.length,
+    architecture: validMemories.filter((m) => typeof m.type === 'string' && m.type.toLowerCase() === 'architecture').length,
+    coding_standard: validMemories.filter((m) => typeof m.type === 'string' && m.type.toLowerCase() === 'coding_standard').length,
+    bug_fix: validMemories.filter((m) => typeof m.type === 'string' && m.type.toLowerCase() === 'bug_fix').length,
+    team_preference: validMemories.filter((m) => typeof m.type === 'string' && m.type.toLowerCase() === 'team_preference').length,
+    conversation: validMemories.filter((m) => typeof m.type === 'string' && m.type.toLowerCase() === 'conversation').length,
   };
 
   // Filter memories list by search query and category
   const getFilteredMemories = (memsList) => {
-    return memsList.filter((memory) => {
-      const matchesFilter = selectedFilter === 'all' || memory.type?.toLowerCase() === selectedFilter;
+    const validMems = Array.isArray(memsList) ? memsList.filter(Boolean) : [];
+    return validMems.filter((memory) => {
+      const typeStr = typeof memory.type === 'string' ? memory.type : '';
+      const contentStr = typeof memory.content === 'string' ? memory.content : '';
+
+      const matchesFilter = selectedFilter === 'all' || typeStr.toLowerCase() === selectedFilter;
       const matchesSearch = !searchQuery.trim() || 
-        memory.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        memory.type.toLowerCase().includes(searchQuery.toLowerCase());
+        contentStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        typeStr.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesFilter && matchesSearch;
     });
   };
 
-  const currentFiltered = getFilteredMemories(memories);
+  const currentFiltered = getFilteredMemories(validMemories);
 
   const filterTabs = [
     { id: 'all', label: 'All Memory', count: stats.total, icon: <LayoutGrid size={14} /> },
@@ -82,7 +88,7 @@ const MemoryDashboard = () => {
     const activeCategories = selectedFilter === 'all' ? categories : [selectedFilter];
 
     const sections = activeCategories.map((cat) => {
-      const catMems = memories.filter((m) => m.type?.toLowerCase() === cat);
+      const catMems = validMemories.filter((m) => typeof m?.type === 'string' && m.type.toLowerCase() === cat);
       const filteredCatMems = getFilteredMemories(catMems);
 
       if (filteredCatMems.length === 0) return null;

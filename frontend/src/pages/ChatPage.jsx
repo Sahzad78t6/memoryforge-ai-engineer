@@ -84,18 +84,20 @@ const ChatPage = () => {
       }
 
       // Staged successfully
+      const responseData = response || {};
+      const analysisObj = responseData.analysis || responseData || {};
       setStagedFile({
         name: stagedName,
-        size: response.size || selectedFiles.reduce((total, file) => total + file.size, 0),
+        size: responseData.size || selectedFiles.reduce((total, file) => total + file.size, 0),
         type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
         status: 'ready',
-        fileId: response.file_id,
-        analysis: response.analysis || response,
-        summary: response.summary || response.analysis?.summary || 'No summary available.',
-        ocrStatus: response.status || 'success',
-        extractedText: response.extracted_text || '',
-        technologies: response.technologies_detected || response.analysis?.technologies || [],
-        memories: response.memories_created || response.analysis?.memories || []
+        fileId: responseData.file_id,
+        analysis: analysisObj,
+        summary: responseData.summary || analysisObj.summary || 'No summary available.',
+        ocrStatus: responseData.status || 'success',
+        extractedText: responseData.extracted_text || '',
+        technologies: responseData.technologies_detected || analysisObj.technologies || [],
+        memories: responseData.memories_created || analysisObj.memories || []
       });
 
       // Refresh total count metrics
