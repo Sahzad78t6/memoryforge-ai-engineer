@@ -40,6 +40,7 @@ const formatResponseText = (text) => {
         return part;
       });
 
+      
       if (isBullet) {
         return (
           <li key={lineIndex} className="ml-5 list-disc text-sm text-slate-300 my-1 font-sans">
@@ -83,7 +84,18 @@ const CodeBlock = ({ code, language }) => {
   };
 
   return (
-    <div className="my-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 font-mono shadow-inner">
+    <div
+      className="
+      my-4
+      overflow-hidden
+      rounded-2xl
+      border
+      border-slate-800
+      bg-[#0b0f19]
+      font-mono
+      shadow-[0_0_40px_-15px_rgba(99,102,241,0.35)]
+      "
+      >
       <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-4 py-2 text-2xs uppercase tracking-wider text-slate-400">
         <div className="flex items-center gap-1.5 font-semibold">
           <FileJson size={12} className="text-brand-400" />
@@ -130,14 +142,23 @@ const MessageBubble = ({ role, content }) => {
       <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${
         isUser
           ? 'bg-gradient-to-br from-brand-600 to-indigo-600 text-white rounded-br-none border border-brand-500/30'
-          : 'bg-slate-900/50 text-slate-200 rounded-bl-none border border-slate-800/60'
+          : `
+              bg-slate-900/30
+              backdrop-blur-xl
+              text-slate-200
+              border border-slate-800/70
+              rounded-3xl
+              shadow-[0_0_30px_-15px_rgba(99,102,241,0.3)]
+              `
       }`}>
         {/* Message Sender Header */}
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-2xs font-bold tracking-wider uppercase opacity-60">
-            {isUser ? 'You' : 'MemoryForge AI'}
-          </span>
-        </div>
+      <div className="flex items-center gap-2 mb-2">
+       <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+
+      <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400">
+       MemoryForge AI
+     </span>
+    </div>
 
         {/* Message Body */}
         <div className="space-y-1">

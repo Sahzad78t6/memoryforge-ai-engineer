@@ -87,7 +87,6 @@ const ChatWindow = ({ messages = [], loading = false }) => {
     );
   }
 
-
   return (
     <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
       {messages.map((msg, index) => (
@@ -96,7 +95,7 @@ const ChatWindow = ({ messages = [], loading = false }) => {
 
       {loading && (
         <div className="flex w-full gap-3 py-4 justify-start border-b border-slate-900/30">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white animate-pulse">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-brand-400 text-white animate-pulse">
             <Cpu size={16} />
           </div>
           <div className="max-w-[85%] rounded-2xl p-4 bg-slate-900/50 text-slate-400 border border-slate-800/60 rounded-bl-none">

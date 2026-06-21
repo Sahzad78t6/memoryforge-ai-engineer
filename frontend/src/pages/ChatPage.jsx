@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ChatWindow from '../components/ChatWindow';
 import MemoryPanel from '../components/MemoryPanel';
+import NetworkAnimation from '../components/NetworkAnimation';
 import { 
   sendChatMessage, 
   getHealth, 
@@ -39,6 +40,7 @@ const ChatPage = () => {
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking'); // checking, online, offline
+  const [showHero, setShowHero] = useState(true);
   
   // Success Metrics State
   const [storedCount, setStoredCount] = useState(0);
@@ -170,6 +172,9 @@ const ChatPage = () => {
 
     const displayMsg = displayText || messageText;
 
+    // Hide hero when first message is sent
+    setShowHero(false);
+
     // Stage user message
     setMessages((prev) => [...prev, { role: 'user', content: displayMsg }]);
     setLoading(true);
@@ -272,7 +277,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
     }
 
     setInput('');
-    setStagedFile(null); // Clear staged thumbnail
+    setStagedFile(null);
     handleSend(queryToSend, displayMessageText);
   };
 
@@ -321,14 +326,16 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-slate-950">
       {/* Main Grid Workspace */}
-      <div className="flex flex-1 flex-col lg:grid lg:grid-cols-4 overflow-hidden">
+      <div className="relative z-10 flex flex-1 flex-col lg:grid lg:grid-cols-4 overflow-hidden">
         {/* Chat Area (3 columns on desktop) */}
-        <div className="flex flex-col lg:col-span-3 h-full border-r border-slate-900 overflow-hidden">
+        <div className="flex flex-col lg:col-span-3 h-full border-r border-slate-900/80 overflow-hidden">
           {/* Chat Header */}
-          <div className="flex h-14 items-center justify-between border-b border-slate-900 bg-slate-950/40 px-6 shrink-0">
-            <div className="flex items-center gap-2">
-              <Cpu size={16} className="text-brand-400" />
-              <span className="text-sm font-bold uppercase tracking-wider text-slate-300">
+          <div className="flex h-14 items-center justify-between border-b border-slate-900/80 bg-slate-950/60 backdrop-blur-sm px-6 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/10 ring-1 ring-brand-500/30">
+                <Cpu size={14} className="text-brand-400" />
+              </div>
+              <span className="text-sm font-bold uppercase tracking-wider text-slate-200">
                 Agent Engineering Workspace
               </span>
             </div>
@@ -340,8 +347,8 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                 disabled={seeding || backendStatus === 'offline'}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 border ${
                   seedSuccess
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                    : 'bg-brand-600/10 border-brand-500/20 text-brand-400 hover:bg-brand-600/20 hover:border-brand-500/30'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]'
+                    : 'bg-brand-600/10 border-brand-500/30 text-brand-300 hover:bg-brand-600/20 hover:border-brand-500/50 hover:shadow-[0_0_16px_-4px_rgba(92,120,255,0.6)]'
                 } disabled:opacity-50`}
               >
                 {seeding ? (
@@ -355,9 +362,13 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
               </button>
 
               <div className="flex items-center gap-1.5 border-l border-slate-800 pl-3">
-                <span className={`inline-block h-2 w-2 rounded-full ${
-                  backendStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
-                }`} />
+                <span className={`relative inline-flex h-2 w-2 rounded-full ${
+                  backendStatus === 'online' ? 'bg-emerald-500' : 'bg-red-500'
+                }`}>
+                  {backendStatus === 'online' && (
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 animate-ping opacity-75" />
+                  )}
+                </span>
                 <span className="text-2xs font-semibold text-slate-500 uppercase tracking-widest hidden sm:inline">
                   {backendStatus === 'online' ? 'Backend Live' : 'Backend Offline'}
                 </span>
@@ -371,9 +382,9 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
           </div>
 
           {/* Form Input Footer */}
-          <div className="border-t border-slate-900 bg-slate-950/40 p-4 shrink-0">
+          <div className="border-t border-slate-900/80 bg-slate-950/60 backdrop-blur-sm p-4 shrink-0">
             <form onSubmit={handleFormSubmit} className="mx-auto max-w-4xl">
-              <div className="relative flex flex-col rounded-3xl bg-[#212121] border border-transparent focus-within:border-slate-800/80 p-3 transition-all">
+              <div className="relative flex flex-col rounded-3xl bg-[#1a1a1f] border border-slate-800/60 focus-within:border-brand-500/50 focus-within:shadow-[0_0_0_3px_rgba(92,120,255,0.08)] p-3 transition-all duration-200">
                 
                  {/* Staged File Thumbnail Row (visible if a file is staged) */}
                  {stagedFile && (
@@ -392,7 +403,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                              {stagedFile.type?.startsWith('image/') ? (
                                <Image size={18} className="text-emerald-400" />
                              ) : stagedFile.name?.endsWith('.zip') ? (
-                               <FolderArchive size={18} className="text-violet-400" />
+                               <FolderArchive size={18} className="text-brand-300" />
                              ) : (
                                <FileText size={18} className="text-blue-400" />
                              )}
@@ -409,7 +420,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                              setStagedFile(null);
                              setUploadingFile(false);
                            }}
-                           className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white cursor-pointer z-20 transition-all shadow-md"
+                           className="absolute -top-0.5 -right-0.5 h-[18px] w-[18px] bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white cursor-pointer z-20 transition-all shadow-md"
                          >
                            <X size={10} />
                          </button>
@@ -475,7 +486,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                              {/* Summary */}
                              <div className="space-y-1">
                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Summary</span>
-                               <p className="text-2xs text-slate-350 leading-relaxed font-sans">
+                               <p className="text-2xs text-slate-300 leading-relaxed font-sans">
                                  {stagedFile.summary}
                                </p>
                              </div>
@@ -525,7 +536,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading || uploadingFile || backendStatus === 'offline'}
                     className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer shrink-0 mr-1"
-                    title="Upload any local project folder to work with it like a real coding agent"
+                    title="Upload and ingest files/code/projects"
                   >
                     <Plus size={18} />
                   </button>
@@ -551,7 +562,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                         ? 'Reconnect to backend to send prompts...'
                         : 'Ask the agent to inspect, edit, debug, or improve your project'
                     }
-                    className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-[#8e8e8e] focus:outline-none disabled:opacity-50"
+                    className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none disabled:opacity-50"
                   />
                   
                   {/* Voice & Submit Actions */}
@@ -569,7 +580,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                       <button
                         type="submit"
                         disabled={loading || uploadingFile || backendStatus === 'offline'}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 shadow-md active:scale-95 disabled:bg-slate-800 disabled:text-slate-500"
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-white hover:bg-brand-400 transition-all cursor-pointer shrink-0 shadow-[0_0_16px_-2px_rgba(92,120,255,0.7)] active:scale-95 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none"
                       >
                         <ArrowUp size={18} />
                       </button>
@@ -600,7 +611,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
         </div>
 
         {/* Sidebar Controls & Memory Panel (1 column on desktop) */}
-        <div className="lg:col-span-1 h-full bg-slate-950 p-4 overflow-y-auto border-t lg:border-t-0 border-slate-900 space-y-5 flex flex-col">
+        <div className="lg:col-span-1 h-full bg-slate-950/60 p-4 overflow-y-auto border-t lg:border-t-0 border-slate-900/80 space-y-5 flex flex-col">
           
           {/* 1. Live Memory Influence Panel */}
           <div className="flex-1 min-h-0 flex flex-col">
@@ -608,7 +619,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
           </div>
 
           {/* 2. Success Metrics Box */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4">
+          <div className="rounded-2xl border border-brand-500/20 bg-gradient-to-b from-brand-500/[0.07] to-slate-900/40 p-4 shadow-[0_0_24px_-8px_rgba(92,120,255,0.35)]">
             <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800/60 mb-3">
               <Database size={14} className="text-brand-400" />
               <span className="text-xs font-bold tracking-wider text-slate-300 uppercase">
@@ -617,13 +628,13 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
             </div>
             
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-slate-950/40 p-2 rounded-lg border border-slate-900">
+              <div className="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/80">
                 <div className="text-3xs font-semibold text-slate-500 uppercase tracking-wide">Stored</div>
-                <div className="text-base font-bold text-white mt-0.5 font-mono">{storedCount}</div>
+                <div className="text-xl font-bold text-white mt-1 font-mono tabular-nums">{storedCount}</div>
               </div>
-              <div className="bg-slate-950/40 p-2 rounded-lg border border-slate-900">
+              <div className="bg-slate-950/50 p-2.5 rounded-xl border border-brand-500/20">
                 <div className="text-3xs font-semibold text-slate-500 uppercase tracking-wide">Recalls</div>
-                <div className="text-base font-bold text-brand-400 mt-0.5 font-mono">{retrievedCount}</div>
+                <div className="text-xl font-bold text-brand-300 mt-1 font-mono tabular-nums">{retrievedCount}</div>
               </div>
               <div className="bg-slate-950/40 p-2 rounded-lg border border-slate-900 flex flex-col justify-between items-center overflow-hidden">
                 <div className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Success %</div>
@@ -648,7 +659,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
           </div>
 
           {/* 3. Demo Scenario Pills */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
             <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800/60 mb-3">
               <Play size={14} className="text-emerald-400" />
               <span className="text-xs font-bold tracking-wider text-slate-300 uppercase">
@@ -662,10 +673,10 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                   key={index}
                   onClick={() => handleSend(scenario)}
                   disabled={loading || backendStatus === 'offline'}
-                  className="w-full flex items-center justify-between gap-1 text-left rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-slate-800 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white transition-all disabled:opacity-50"
+                  className="group w-full flex items-center justify-between gap-1 text-left rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-brand-500/30 px-3 py-2.5 text-xs font-medium text-slate-300 hover:text-white transition-all duration-150 disabled:opacity-50"
                 >
-                  <span className="truncate">{scenario}</span>
-                  <ChevronRightIcon className="text-slate-600 group-hover:text-slate-400 shrink-0" />
+                  <span className="truncate font-mono">{scenario}</span>
+                  <ChevronRightIcon className="text-slate-600 group-hover:text-brand-400 group-hover:translate-x-0.5 transition-all shrink-0" />
                 </button>
               ))}
             </div>

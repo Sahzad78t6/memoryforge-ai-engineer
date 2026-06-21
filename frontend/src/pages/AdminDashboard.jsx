@@ -138,15 +138,26 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto bg-slate-950 p-6 md:p-8 text-slate-100">
-      
+    <div className="flex-1 flex flex-col overflow-y-auto bg-slate-950 p-6 md:p-8 text-slate-100 relative">
+
+      {/* Ambient background glow — consistent with AuthPage / ChatPage / MemoryDashboard */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden opacity-60">
+        <div className="absolute -top-32 right-1/4 h-96 w-96 rounded-full bg-brand-700/10 blur-[120px]" />
+        <div className="absolute bottom-0 left-0 h-80 w-80 rounded-full bg-brand-600/10 blur-[100px]" />
+      </div>
+
+      <div className="relative z-10 flex flex-col flex-1">
+
       {/* Top Banner Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-5 border-b border-slate-900 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-400 via-indigo-200 to-slate-100 bg-clip-text text-transparent flex items-center gap-3">
-            <Database className="h-8 w-8 text-indigo-400" /> Admin Control Room
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-brand-300 via-brand-100 to-slate-100 bg-clip-text text-transparent flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 ring-1 ring-brand-500/30 shrink-0">
+              <Database className="h-5 w-5 text-brand-400" />
+            </div>
+            Admin Control Room
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-400 text-sm mt-1.5">
             Configure system parameters, manage vector knowledge ingest, and monitor retrieval metrics.
           </p>
         </div>
@@ -156,7 +167,7 @@ export default function AdminDashboard() {
           <button
             onClick={() => setActiveTab('analytics')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'analytics' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'analytics' ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Analytics
@@ -164,7 +175,7 @@ export default function AdminDashboard() {
           <button
             onClick={() => setActiveTab('knowledge')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'knowledge' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'knowledge' ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Knowledge Base
@@ -172,7 +183,7 @@ export default function AdminDashboard() {
           <button
             onClick={() => setActiveTab('memories')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'memories' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'memories' ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Memories
@@ -197,7 +208,7 @@ export default function AdminDashboard() {
       {/* Main Tab Content */}
       {loading && !analytics && memories.length === 0 && knowledge.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-12">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent mb-4" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-500 border-t-transparent mb-4" />
           <p className="text-slate-400 text-sm">Querying database resources...</p>
         </div>
       ) : (
@@ -210,32 +221,32 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 
                 {/* Card 1: Users */}
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 hover:border-slate-800/80 transition-all flex items-center justify-between">
+                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 hover:border-brand-500/30 transition-all flex items-center justify-between">
                   <div>
                     <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Total Users</span>
-                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block">{analytics.total_users}</span>
+                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block font-mono tabular-nums">{analytics.total_users}</span>
                   </div>
-                  <div className="h-10 w-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                  <div className="h-10 w-10 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-300">
                     <Users className="h-5 w-5" />
                   </div>
                 </div>
 
                 {/* Card 2: Memories */}
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 hover:border-slate-800/80 transition-all flex items-center justify-between">
+                <div className="bg-slate-900/40 border border-brand-500/20 rounded-2xl p-5 hover:border-brand-500/40 transition-all flex items-center justify-between shadow-[0_0_24px_-10px_rgba(92,120,255,0.4)]">
                   <div>
                     <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Memories Stored</span>
-                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block">{analytics.total_memories}</span>
+                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block font-mono tabular-nums">{analytics.total_memories}</span>
                   </div>
-                  <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <div className="h-10 w-10 rounded-xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-300">
                     <BrainCircuit className="h-5 w-5" />
                   </div>
                 </div>
 
                 {/* Card 3: Chats */}
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 hover:border-slate-800/80 transition-all flex items-center justify-between">
+                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 hover:border-blue-500/30 transition-all flex items-center justify-between">
                   <div>
                     <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Total chats</span>
-                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block">{analytics.total_chats}</span>
+                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block font-mono tabular-nums">{analytics.total_chats}</span>
                   </div>
                   <div className="h-10 w-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
                     <MessageSquare className="h-5 w-5" />
@@ -243,10 +254,10 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Card 4: Retrievals */}
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 hover:border-slate-800/80 transition-all flex items-center justify-between">
+                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 hover:border-emerald-500/30 transition-all flex items-center justify-between">
                   <div>
                     <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Retrievals Count</span>
-                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block">{analytics.memory_retrieval_count}</span>
+                    <span className="text-2xl md:text-3xl font-extrabold text-white mt-1 block font-mono tabular-nums">{analytics.memory_retrieval_count}</span>
                   </div>
                   <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                     <Activity className="h-5 w-5" />
@@ -261,7 +272,7 @@ export default function AdminDashboard() {
                 {/* Column 1: Most Queried Topics */}
                 <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 lg:col-span-2">
                   <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2 mb-5">
-                    <BarChart3 className="h-5 w-5 text-indigo-400" /> Hot Retrieval Topics
+                    <BarChart3 className="h-5 w-5 text-brand-400" /> Hot Retrieval Topics
                   </h3>
                   
                   {analytics.most_queried_topics?.length === 0 ? (
@@ -278,7 +289,7 @@ export default function AdminDashboard() {
                           </div>
                           <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden">
                             <div 
-                              className="bg-indigo-500 h-full rounded-full" 
+                              className="bg-gradient-to-r from-brand-600 to-brand-400 h-full rounded-full" 
                               style={{ width: `${Math.min(100, (topic.count / (analytics.memory_retrieval_count || 1)) * 100)}%` }} 
                             />
                           </div>
@@ -289,13 +300,13 @@ export default function AdminDashboard() {
 
                   {/* Category counts */}
                   <h3 className="text-lg font-bold text-slate-100 mt-8 mb-5 flex items-center gap-2">
-                    <Database className="h-5 w-5 text-violet-400" /> Memories by Category
+                    <Database className="h-5 w-5 text-brand-400" /> Memories by Category
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {Object.entries(analytics.memory_categories || {}).map(([cat, val]) => (
-                      <div key={cat} className="bg-slate-950 border border-slate-800/60 rounded-xl p-4 text-center">
+                      <div key={cat} className="bg-slate-950 border border-slate-800/60 rounded-xl p-4 text-center hover:border-brand-500/30 transition-colors">
                         <span className="text-[10px] uppercase font-bold text-slate-500 block tracking-wider">{cat.replace('_', ' ')}</span>
-                        <span className="text-xl font-extrabold text-white mt-1 block">{val}</span>
+                        <span className="text-xl font-extrabold text-white mt-1 block font-mono">{val}</span>
                       </div>
                     ))}
                   </div>
@@ -304,20 +315,20 @@ export default function AdminDashboard() {
                 {/* Column 2: System Users & Credentials */}
                 <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 flex flex-col">
                   <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2 mb-5">
-                    <Users className="h-5 w-5 text-violet-400" /> Platform Registered Users
+                    <Users className="h-5 w-5 text-brand-400" /> Platform Registered Users
                   </h3>
                   
                   <div className="flex-1 overflow-y-auto max-h-[350px] space-y-3 pr-1">
                     {users.map((user) => (
-                      <div key={user.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between gap-3">
+                      <div key={user.id} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between gap-3 hover:border-slate-700 transition-colors">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-white truncate">{user.name}</p>
                           <p className="text-xs text-slate-400 truncate mt-0.5">{user.email}</p>
                         </div>
                         <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full shrink-0 tracking-wider ${
                           user.role === 'ADMIN' 
-                            ? 'bg-violet-500/10 text-violet-300 border border-violet-500/20' 
-                            : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'
+                            ? 'bg-brand-500/15 text-brand-300 border border-brand-500/30' 
+                            : 'bg-slate-800/60 text-slate-300 border border-slate-700'
                         }`}>
                           {user.role}
                         </span>
@@ -328,11 +339,11 @@ export default function AdminDashboard() {
                   <div className="mt-5 pt-4 border-t border-slate-800/80 grid grid-cols-2 text-center text-xs">
                     <div>
                       <span className="text-slate-500 block">Admins</span>
-                      <span className="text-base font-bold text-slate-300 mt-0.5 block">{analytics.roles?.ADMIN || 0}</span>
+                      <span className="text-base font-bold text-slate-300 mt-0.5 block font-mono">{analytics.roles?.ADMIN || 0}</span>
                     </div>
                     <div className="border-l border-slate-800/80">
                       <span className="text-slate-500 block">Users</span>
-                      <span className="text-base font-bold text-slate-300 mt-0.5 block">{analytics.roles?.USER || 0}</span>
+                      <span className="text-base font-bold text-slate-300 mt-0.5 block font-mono">{analytics.roles?.USER || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -350,7 +361,7 @@ export default function AdminDashboard() {
               <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 lg:col-span-1 space-y-6">
                 <div>
                   <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-indigo-400" /> Create Knowledge Document
+                    <BookOpen className="h-5 w-5 text-brand-400" /> Create Knowledge Document
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     Adds reference documentation to the system. The AI retrieves these contents during query evaluations.
@@ -365,7 +376,7 @@ export default function AdminDashboard() {
                       placeholder="e.g., Database Authentication"
                       value={knowTitle}
                       onChange={(e) => setKnowTitle(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-sm"
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 transition-all text-sm"
                     />
                   </div>
                   <div>
@@ -375,12 +386,12 @@ export default function AdminDashboard() {
                       placeholder="e.g., Always use JWT authentication for protected API endpoints..."
                       value={knowContent}
                       onChange={(e) => setKnowContent(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-sm resize-none"
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 transition-all text-sm resize-none"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold py-2.5 px-4 rounded-xl shadow-md text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full bg-brand-600 hover:bg-brand-500 text-sm font-semibold py-2.5 px-4 rounded-xl shadow-md shadow-brand-600/20 text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Plus className="h-4 w-4" /> Save Article
                   </button>
@@ -389,10 +400,10 @@ export default function AdminDashboard() {
                 {/* Form 2: Document File Upload */}
                 <div className="border-t border-slate-800 pt-6">
                   <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 mb-3">
-                    <UploadCloud className="h-4.5 w-4.5 text-violet-400" /> Upload Knowledge File
+                    <UploadCloud className="h-[18px] w-[18px] text-brand-300" /> Upload Knowledge File
                   </h3>
                   <form onSubmit={handleFileUpload} className="space-y-4">
-                    <div className="border-2 border-dashed border-slate-800 rounded-xl p-5 text-center bg-slate-950/30 hover:bg-slate-950/60 hover:border-slate-700 transition-all relative">
+                    <div className="border-2 border-dashed border-slate-800 rounded-xl p-5 text-center bg-slate-950/30 hover:bg-slate-950/60 hover:border-brand-500/40 transition-all relative">
                       <input 
                         type="file" 
                         accept=".txt,.md,.pdf,README" 
@@ -408,7 +419,7 @@ export default function AdminDashboard() {
                     <button
                       type="submit"
                       disabled={!uploadFile}
-                      className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:hover:bg-violet-600 text-sm font-semibold py-2.5 px-4 rounded-xl shadow-md text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full bg-brand-700 hover:bg-brand-600 disabled:opacity-50 disabled:hover:bg-brand-700 text-sm font-semibold py-2.5 px-4 rounded-xl shadow-md shadow-brand-700/20 text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <UploadCloud className="h-4 w-4" /> Index File to Vector Store
                     </button>
@@ -421,7 +432,7 @@ export default function AdminDashboard() {
               <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 lg:col-span-2 space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-violet-400" /> Reference Library
+                    <FileText className="h-5 w-5 text-brand-400" /> Reference Library
                   </h3>
                   
                   {/* Search bar */}
@@ -432,7 +443,7 @@ export default function AdminDashboard() {
                       placeholder="Search knowledge..."
                       value={knowSearch}
                       onChange={(e) => setKnowSearch(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500"
                     />
                   </div>
                 </div>
@@ -445,7 +456,7 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="space-y-4 overflow-y-auto max-h-[500px] pr-1">
                     {filteredKnowledge.map((item) => (
-                      <div key={item.id} className="bg-slate-950 border border-slate-800/80 rounded-xl p-5 hover:border-slate-700 transition-all space-y-2">
+                      <div key={item.id} className="bg-slate-950 border border-slate-800/80 rounded-xl p-5 hover:border-brand-500/30 transition-all space-y-2">
                         <div className="flex items-center justify-between">
                           <h4 className="font-semibold text-white text-sm">{item.title}</h4>
                           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">ID: {item.id?.substring(0, 8)}...</span>
@@ -468,7 +479,7 @@ export default function AdminDashboard() {
               <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 lg:col-span-1 space-y-6">
                 <div>
                   <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <Plus className="h-5 w-5 text-indigo-400" /> Add Workspace Memory
+                    <Plus className="h-5 w-5 text-brand-400" /> Add Workspace Memory
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     Saves a context memory snippet into MongoDB Atlas metadata and the Parcle vector store.
@@ -481,7 +492,7 @@ export default function AdminDashboard() {
                     <select
                       value={memType}
                       onChange={(e) => setMemType(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors text-sm"
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 transition-all text-sm"
                     >
                       <option value="architecture">Architecture</option>
                       <option value="coding_standard">Coding Standard</option>
@@ -497,12 +508,12 @@ export default function AdminDashboard() {
                       placeholder="e.g., Deploy all microservices using Docker on AWS ECS."
                       value={memContent}
                       onChange={(e) => setMemContent(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors text-sm resize-none"
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2.5 px-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 transition-all text-sm resize-none"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold py-2.5 px-4 rounded-xl shadow-md text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full bg-brand-600 hover:bg-brand-500 text-sm font-semibold py-2.5 px-4 rounded-xl shadow-md shadow-brand-600/20 text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Plus className="h-4 w-4" /> Save Memory
                   </button>
@@ -513,7 +524,7 @@ export default function AdminDashboard() {
               <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 lg:col-span-2 space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <BrainCircuit className="h-5 w-5 text-indigo-400" /> Active Vector Memories
+                    <BrainCircuit className="h-5 w-5 text-brand-400" /> Active Vector Memories
                   </h3>
                   
                   <div className="flex flex-wrap items-center gap-3">
@@ -521,7 +532,7 @@ export default function AdminDashboard() {
                     <select
                       value={memFilter}
                       onChange={(e) => setMemFilter(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                      className="bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
                     >
                       <option value="all">All Categories</option>
                       <option value="architecture">Architecture</option>
@@ -539,7 +550,7 @@ export default function AdminDashboard() {
                         placeholder="Search memories..."
                         value={memSearch}
                         onChange={(e) => setMemSearch(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500"
                       />
                     </div>
                   </div>
@@ -553,16 +564,16 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto max-h-[500px] pr-1">
                     {filteredMemories.map((m, idx) => (
-                      <div key={idx} className="bg-slate-950 border border-slate-800/80 rounded-xl p-4.5 hover:border-slate-700 transition-all flex flex-col justify-between space-y-3">
+                      <div key={idx} className="bg-slate-950 border border-slate-800/80 rounded-xl p-4 hover:border-brand-500/30 transition-all flex flex-col justify-between space-y-3">
                         <p className="text-xs text-slate-300 leading-relaxed font-mono">"{m.content}"</p>
                         <div className="flex items-center justify-between border-t border-slate-900 pt-3">
                           <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500 font-mono">Memory {idx+1}</span>
                           <span className={`text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border tracking-wide ${
-                            m.type === 'architecture' ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' :
-                            m.type === 'coding_standard' ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20' :
+                            m.type === 'architecture' ? 'bg-brand-500/10 text-brand-300 border-brand-500/20' :
+                            m.type === 'coding_standard' ? 'bg-blue-500/10 text-blue-300 border-blue-500/20' :
                             m.type === 'bug_fix' ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' :
                             m.type === 'team_preference' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' :
-                            'bg-blue-500/10 text-blue-300 border-blue-500/20'
+                            'bg-slate-800/60 text-slate-300 border-slate-700'
                           }`}>
                             {m.type.replace('_', ' ')}
                           </span>
@@ -578,6 +589,7 @@ export default function AdminDashboard() {
         </>
       )}
 
+      </div>
     </div>
   );
 }
