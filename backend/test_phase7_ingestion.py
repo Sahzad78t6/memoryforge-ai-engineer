@@ -70,7 +70,12 @@ print(f"Image Upload Status: {r_img.status_code}")
 if r_img.status_code == 200:
     res = r_img.json()
     print("Upload Result Keys:", list(res.keys()))
-    print("AI Summary Preview:", res.get("analysis", {}).get("summary")[:150] + "...")
+    analysis_field = res.get("analysis")
+    if isinstance(analysis_field, dict):
+        summary_text = analysis_field.get("summary", "")
+    else:
+        summary_text = res.get("summary", "")
+    print("AI Summary Preview:", (summary_text or "")[:150] + "...")
 else:
     print(r_img.text)
 

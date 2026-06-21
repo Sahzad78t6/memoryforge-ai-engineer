@@ -81,7 +81,8 @@ const ChatPage = () => {
         status: 'ready',
         fileId: response.file_id,
         analysis: response.analysis,
-        summary: response.analysis?.summary || 'No summary available.'
+        summary: response.summary || (response.analysis && typeof response.analysis === 'object' ? response.analysis.summary : response.analysis) || 'No summary available.',
+        ocrStatus: response.status || 'success'
       });
 
       // Refresh total count metrics
@@ -364,47 +365,80 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
             <form onSubmit={handleFormSubmit} className="mx-auto max-w-4xl">
               <div className="relative flex flex-col rounded-3xl bg-[#212121] border border-transparent focus-within:border-slate-800/80 p-3 transition-all">
                 
-                {/* Staged File Thumbnail Row (visible if a file is staged) */}
-                {stagedFile && (
-                  <div className="flex px-2 mb-3">
-                    <div className="relative w-14 h-14 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col items-center justify-center overflow-hidden">
-                      {stagedFile.status === 'uploading' ? (
-                        <div className="flex flex-col items-center justify-center gap-1">
-                          <div className="w-5 h-5 rounded-full border-2 border-slate-600 border-t-white animate-spin" />
-                        </div>
-                      ) : stagedFile.status === 'error' ? (
-                        <div className="flex items-center justify-center text-rose-500">
-                          <AlertCircle size={20} />
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center">
-                          {stagedFile.type?.startsWith('image/') ? (
-                            <Image size={18} className="text-emerald-400" />
-                          ) : stagedFile.name?.endsWith('.zip') ? (
-                            <FolderArchive size={18} className="text-violet-400" />
-                          ) : (
-                            <FileText size={18} className="text-blue-400" />
-                          )}
-                          <span className="text-[8px] text-slate-400 font-medium truncate max-w-[48px] mt-1 px-1">
-                            {stagedFile.name}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Close button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStagedFile(null);
-                          setUploadingFile(false);
-                        }}
-                        className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-slate-455 hover:text-white cursor-pointer z-20 transition-all shadow-md"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                 {/* Staged File Thumbnail Row (visible if a file is staged) */}
+                 {stagedFile && (
+                   <div className="flex flex-col gap-2 px-2 mb-3">
+                     <div className="flex items-center gap-3">
+                       {/* Thumbnail/Icon */}
+                       <div className="relative w-12 h-12 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col items-center justify-center overflow-hidden shrink-0">
+                         {stagedFile.status === 'uploading' ? (
+                           <div className="w-5 h-5 rounded-full border-2 border-slate-600 border-t-white animate-spin" />
+                         ) : stagedFile.status === 'error' ? (
+                           <div className="text-rose-500">
+                             <AlertCircle size={20} />
+                           </div>
+                         ) : (
+                           <div className="flex flex-col items-center justify-center">
+                             {stagedFile.type?.startsWith('image/') ? (
+                               <Image size={18} className="text-emerald-400" />
+                             ) : stagedFile.name?.endsWith('.zip') ? (
+                               <FolderArchive size={18} className="text-violet-400" />
+                             ) : (
+                               <FileText size={18} className="text-blue-400" />
+                             )}
+                             <span className="text-[8px] text-slate-400 font-medium truncate max-w-[40px] mt-1 px-1">
+                               {stagedFile.name}
+                             </span>
+                           </div>
+                         )}
+                         
+                         {/* Close button */}
+                         <button
+                           type="button"
+                           onClick={() => {
+                             setStagedFile(null);
+                             setUploadingFile(false);
+                           }}
+                           className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white cursor-pointer z-20 transition-all shadow-md"
+                         >
+                           <X size={10} />
+                         </button>
+                       </div>
+ 
+                       {/* Status / Tag Info */}
+                       {stagedFile.status === 'ready' && (
+                         <div className="flex flex-col justify-center">
+                           <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full w-fit">
+                             <Check size={12} />
+                             <span>Upload Successful</span>
+                           </div>
+                           {stagedFile.ocrStatus === 'partial_success' && (
+                             <span className="text-2xs text-amber-400 mt-1 font-medium">
+                               Image processed with limited analysis available.
+                             </span>
+                           )}
+                         </div>
+                       )}
+ 
+                       {stagedFile.status === 'error' && (
+                         <div className="flex flex-col justify-center">
+                           <span className="text-xs text-rose-400 font-semibold">
+                             Upload Failed
+                           </span>
+                           <span className="text-2xs text-rose-500 mt-0.5 max-w-md truncate">
+                             {stagedFile.error}
+                           </span>
+                         </div>
+                       )}
+ 
+                       {stagedFile.status === 'uploading' && (
+                         <div className="flex items-center text-xs text-slate-400 font-medium">
+                           Processing and ingesting asset...
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 )}
 
                 {/* Input Controls Row */}
                 <div className="flex items-center">

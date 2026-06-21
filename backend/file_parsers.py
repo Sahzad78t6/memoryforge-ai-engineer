@@ -38,34 +38,64 @@ def parse_docx(file_bytes: bytes) -> str:
         logger.error(f"Error parsing DOCX file: {str(e)}")
         raise ValueError(f"Failed to read DOCX document: {str(e)}")
 
-def parse_image_ocr(file_bytes: bytes) -> str:
+def parse_image_ocr(file_bytes: bytes, filename: str = "") -> dict:
     """
     Extracts text from image file bytes using pytesseract OCR.
-    Gracefully falls back to metadata details if the Tesseract binary is not installed on the system.
+    If OCR fails or is not available, attempts metadata inspection and returns a friendly fallback dictionary.
     """
+    logger.info("[OCR START] Starting image text extraction.")
     try:
         image = Image.open(io.BytesIO(file_bytes))
         width, height = image.size
         img_format = image.format or "Unknown"
         
+        # Enhanced Image Analysis: Inspect filename and properties before checking OCR
+        image_type = None
+        fn = filename.lower() if filename else ""
+        if "screenshot" in fn or "screen_shot" in fn:
+            image_type = "screenshot"
+        elif "diagram" in fn or "architecture" in fn or "flowchart" in fn or "schema" in fn:
+            image_type = "architecture diagram"
+        elif "ui" in fn or "design" in fn or "mockup" in fn or "wireframe" in fn or "layout" in fn:
+            image_type = "UI design"
+        elif "code" in fn or "source" in fn or "script" in fn:
+            image_type = "code screenshot"
+
         try:
             # Attempt OCR text extraction
             ocr_text = pytesseract.image_to_string(image)
             if ocr_text and ocr_text.strip():
-                return ocr_text
+                return {
+                    "status": "success",
+                    "text": ocr_text,
+                    "metadata": {"width": width, "height": height, "format": img_format}
+                }
             else:
-                return f"[Image Metadata] Format: {img_format}, Dimensions: {width}x{height}px. No text was detected via OCR."
+                logger.warning("[OCR FAILED] No readable text found in the image.")
+                logger.info("[OCR FALLBACK USED] OCR fallback text generated.")
+                analysis_msg = "The uploaded image was received successfully but readable text could not be extracted."
+                if image_type:
+                    analysis_msg = f"This appears to be a {image_type}. Text extraction is currently unavailable for this image, but the file was uploaded successfully."
+                return {
+                    "status": "partial_success",
+                    "summary": "Text extraction could not be completed for this image.",
+                    "analysis": analysis_msg,
+                    "memories_created": []
+                }
         except Exception as ocr_err:
-            logger.warning(f"[OCR FALLBACK ACTIVE] Tesseract OCR error: {str(ocr_err)}. Falling back to image metadata description.")
-            return (
-                f"[Image Ingestion Fallback]\n"
-                f"Tesseract OCR is not fully configured on the host system.\n"
-                f"Image Format: {img_format}\n"
-                f"Dimensions: {width}x{height}px\n"
-                f"Action item: Whitelist or install Tesseract OCR binary on host path for direct image text extraction."
-            )
+            logger.warning(f"[OCR FAILED] Tesseract OCR extraction failed: {str(ocr_err)}")
+            logger.info("[OCR FALLBACK USED] OCR fallback text generated.")
+            analysis_msg = "The uploaded image was received successfully but readable text could not be extracted."
+            if image_type:
+                analysis_msg = f"This appears to be a {image_type}. Text extraction is currently unavailable for this image, but the file was uploaded successfully."
+            return {
+                "status": "partial_success",
+                "summary": "Text extraction could not be completed for this image.",
+                "analysis": analysis_msg,
+                "memories_created": []
+            }
     except Exception as e:
-        logger.error(f"Error reading image: {str(e)}")
+        logger.error(f"Error reading image metadata: {str(e)}")
         raise ValueError(f"Failed to process image: {str(e)}")
 
 def parse_project_zip(file_bytes: bytes) -> str:

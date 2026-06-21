@@ -579,12 +579,67 @@ async def upload_image(
     
     try:
         # 1. Parse Image OCR content
-        ocr_content = file_parsers.parse_image_ocr(content_bytes)
+        ocr_result = file_parsers.parse_image_ocr(content_bytes, filename)
         
-        # 2. Extract structured knowledge using Groq LLM
+        # 2. Check if OCR text extraction failed or was unavailable
+        if ocr_result.get("status") == "partial_success":
+            # Save metadata of uploaded file to uploaded_files
+            file_doc = {
+                "filename": filename,
+                "file_type": "image",
+                "size": file_size,
+                "user_id": user_id,
+                "timestamp": datetime.utcnow()
+            }
+            res_file = mongodb.db.uploaded_files.insert_one(file_doc)
+            file_id = str(res_file.inserted_id)
+            
+            # Save friendly text summaries
+            mongodb.db.file_summaries.insert_one({
+                "file_id": file_id,
+                "user_id": user_id,
+                "summary": ocr_result["summary"],
+                "timestamp": datetime.utcnow()
+            })
+            
+            # Save empty project_analysis to support metadata queries
+            mongodb.db.project_analysis.insert_one({
+                "file_id": file_id,
+                "user_id": user_id,
+                "technologies": [],
+                "architecture": "Unknown",
+                "decisions": [],
+                "dependencies": [],
+                "security_findings": [],
+                "timestamp": datetime.utcnow()
+            })
+
+            # Save empty knowledge base record
+            mongodb.db.knowledge_base.insert_one({
+                "title": f"Image Diagram: {filename}",
+                "content": ocr_result["analysis"],
+                "user_id": user_id,
+                "timestamp": datetime.utcnow(),
+                "file_id": file_id
+            })
+
+            return {
+                "summary": ocr_result["summary"],
+                "analysis": ocr_result["analysis"],
+                "memories_created": [],
+                "status": "partial_success",
+                "file_id": file_id,
+                "filename": filename,
+                "size": file_size
+            }
+        
+        # 3. Successful OCR extraction
+        ocr_content = ocr_result.get("text", "")
+        
+        # 4. Extract structured knowledge using Groq LLM
         analysis = knowledge_extractor.extract_structured_knowledge(filename, ocr_content, "image")
         
-        # 3. Save to MongoDB 'uploaded_files'
+        # 5. Save to MongoDB 'uploaded_files'
         file_doc = {
             "filename": filename,
             "file_type": "image",
@@ -595,7 +650,7 @@ async def upload_image(
         res_file = mongodb.db.uploaded_files.insert_one(file_doc)
         file_id = str(res_file.inserted_id)
         
-        # 4. Save summaries and analysis details
+        # 6. Save summaries and analysis details
         mongodb.db.file_summaries.insert_one({
             "file_id": file_id,
             "user_id": user_id,
@@ -622,7 +677,7 @@ async def upload_image(
             "file_id": file_id
         })
         
-        # 5. Ingest memories
+        # 7. Ingest memories
         saved_memories = []
         for mem in analysis.get("memories", []):
             try:
@@ -636,7 +691,11 @@ async def upload_image(
             "filename": filename,
             "size": file_size,
             "analysis": analysis,
-            "memories_created_count": len(saved_memories)
+            "memories_created_count": len(saved_memories),
+            "extracted_text": ocr_content,
+            "summary": analysis.get("summary", ""),
+            "technologies_detected": analysis.get("technologies", []),
+            "memories_generated": analysis.get("memories", [])
         }
     except Exception as e:
         logger.error(f"Failed to ingest image: {str(e)}")
