@@ -10,7 +10,8 @@ import {
   User, 
   Settings,
   Menu,
-  X
+  X,
+  Boxes
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -40,8 +41,10 @@ export default function Sidebar() {
   };
 
   const navItems = [
-    { to: '/', label: 'Chat Workspace', icon: MessageSquare },
+    { to: '/chat', label: 'Chat Workspace', icon: MessageSquare },
+    { to: '/workflow', label: 'Workflow Editor', icon: Boxes },
     { to: '/memories', label: 'Memory Dashboard', icon: Database },
+    { to: '/settings', label: 'Integrations & Keys', icon: Settings },
   ];
 
   // If user is ADMIN, append the Admin Portal option
@@ -49,8 +52,8 @@ export default function Sidebar() {
     navItems.push({ to: '/admin', label: 'Admin Portal', icon: Shield });
   }
 
-  // Hide sidebar on Auth screen to give clean space
-  if (location.pathname === '/auth') {
+  // Hide sidebar on Auth screen or Landing Page to give clean space
+  if (location.pathname === '/' || location.pathname === '/auth') {
     return null;
   }
 
@@ -141,9 +144,9 @@ export default function Sidebar() {
                 <button
                   onClick={() => {
                     setIsOpen(false);
-                    // placeholder settings
+                    navigate('/settings');
                   }}
-                  className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-500 hover:bg-slate-900/60 hover:text-slate-300 cursor-pointer"
+                  className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-500 hover:bg-slate-900/60 hover:text-slate-300 cursor-pointer active:scale-98 transition-all animate-none"
                 >
                   <Settings size={16} />
                   <span>Workspace Settings</span>
