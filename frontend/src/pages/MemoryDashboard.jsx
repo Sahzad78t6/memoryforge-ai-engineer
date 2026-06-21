@@ -70,7 +70,7 @@ const MemoryDashboard = () => {
     architecture: { title: 'Architecture Decisions', color: 'text-blue-400 border-blue-900/50' },
     coding_standard: { title: 'Coding Standards & Guidelines', color: 'text-emerald-400 border-emerald-900/50' },
     bug_fix: { title: 'Bug Fix & Resolution Memory', color: 'text-red-400 border-red-900/50' },
-    team_preference: { title: 'Team Preference Constraints', color: 'text-purple-400 border-purple-900/50' },
+    team_preference: { title: 'Team Preference Constraints', color: 'text-brand-300 border-brand-900/50' },
     conversation: { title: 'Interactive Conversation Logs', color: 'text-slate-400 border-slate-800' },
   };
 
@@ -125,7 +125,7 @@ const MemoryDashboard = () => {
       <div className="relative pl-6 md:pl-8 border-l-2 border-slate-800 space-y-8 ml-2 md:ml-4">
         {currentFiltered.map((memory, index) => (
           <div key={index} className="relative group">
-            {/* Timeline node node indicator */}
+            {/* Timeline node indicator */}
             <div className="absolute -left-[31px] md:-left-[39px] top-1.5 flex h-4 w-4 md:h-5 md:w-5 items-center justify-center rounded-full bg-slate-950 border-2 border-slate-700 group-hover:border-brand-500 group-hover:bg-brand-500/10 transition-all duration-300">
               <div className="h-1.5 w-1.5 rounded-full bg-slate-400 group-hover:bg-brand-400" />
             </div>
@@ -158,13 +158,23 @@ const MemoryDashboard = () => {
   );
 
   return (
-    <div className="flex-1 bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 overflow-y-auto">
-      <div className="mx-auto max-w-7xl">
+    <div className="flex-1 bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 overflow-y-auto relative">
+
+      {/* Ambient background glow — consistent with AuthPage / ChatPage / AdminDashboard */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden opacity-60">
+        <div className="absolute -top-32 left-1/3 h-96 w-96 rounded-full bg-brand-700/10 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-brand-600/10 blur-[100px]" />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-7xl">
         
         {/* Header Section */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-900 pb-6 mb-8">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl font-sans">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl font-sans flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500/10 ring-1 ring-brand-500/30 shrink-0">
+                <Database size={16} className="text-brand-400" />
+              </div>
               Persistent Memory Dashboard
             </h1>
             <p className="mt-1.5 text-sm text-slate-400 font-sans">
@@ -179,7 +189,7 @@ const MemoryDashboard = () => {
                 onClick={() => setViewMode('group')}
                 className={`rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all ${
                   viewMode === 'group'
-                    ? 'bg-slate-800 text-white'
+                    ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
@@ -189,7 +199,7 @@ const MemoryDashboard = () => {
                 onClick={() => setViewMode('timeline')}
                 className={`rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all ${
                   viewMode === 'timeline'
-                    ? 'bg-slate-800 text-white'
+                    ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
@@ -200,7 +210,7 @@ const MemoryDashboard = () => {
             <button
               onClick={fetchDashboardData}
               disabled={loading}
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800 hover:border-brand-500/30 hover:text-white transition-all disabled:opacity-50"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               <span>Reload</span>
@@ -226,29 +236,29 @@ const MemoryDashboard = () => {
 
         {/* Stats Grid Dashboard Cards */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 mb-8">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:bg-slate-900/30">
+          <div className="rounded-xl border border-brand-500/20 bg-gradient-to-b from-brand-500/[0.07] to-slate-900/20 p-4 transition-all hover:border-brand-500/40">
             <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">Total Memories</div>
-            <div className="text-2xl font-extrabold text-white font-mono">{stats.total}</div>
+            <div className="text-2xl font-extrabold text-white font-mono tabular-nums">{stats.total}</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:bg-slate-900/30">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:border-blue-500/30">
             <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">Architecture</div>
-            <div className="text-2xl font-extrabold text-blue-400 font-mono">{stats.architecture}</div>
+            <div className="text-2xl font-extrabold text-blue-400 font-mono tabular-nums">{stats.architecture}</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:bg-slate-900/30">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:border-emerald-500/30">
             <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">Coding Standards</div>
-            <div className="text-2xl font-extrabold text-emerald-400 font-mono">{stats.coding_standard}</div>
+            <div className="text-2xl font-extrabold text-emerald-400 font-mono tabular-nums">{stats.coding_standard}</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:bg-slate-900/30">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:border-red-500/30">
             <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">Bug Fixes</div>
-            <div className="text-2xl font-extrabold text-red-400 font-mono">{stats.bug_fix}</div>
+            <div className="text-2xl font-extrabold text-red-400 font-mono tabular-nums">{stats.bug_fix}</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:bg-slate-900/30">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:border-brand-500/30">
             <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">Team Preferences</div>
-            <div className="text-2xl font-extrabold text-purple-400 font-mono">{stats.team_preference}</div>
+            <div className="text-2xl font-extrabold text-brand-300 font-mono tabular-nums">{stats.team_preference}</div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:bg-slate-900/30">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-4 transition-all hover:border-slate-700">
             <div className="text-2xs font-bold uppercase tracking-wider text-slate-500 mb-1">Conversations</div>
-            <div className="text-2xl font-extrabold text-slate-400 font-mono">{stats.conversation}</div>
+            <div className="text-2xl font-extrabold text-slate-400 font-mono tabular-nums">{stats.conversation}</div>
           </div>
         </div>
 
@@ -262,15 +272,15 @@ const MemoryDashboard = () => {
                 onClick={() => setSelectedFilter(tab.id)}
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider border transition-all ${
                   selectedFilter === tab.id
-                    ? 'bg-slate-800 text-white border-slate-700 shadow-sm'
+                    ? 'bg-brand-600/90 text-white border-brand-500/50 shadow-sm shadow-brand-600/30'
                     : 'bg-transparent text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-900'
                 }`}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
-                <span className={`ml-1 rounded px-1.5 py-0.2 text-3xs font-bold font-mono ${
+                <span className={`ml-1 rounded px-1.5 py-px text-3xs font-bold font-mono ${
                   selectedFilter === tab.id
-                    ? 'bg-slate-700 text-slate-200'
+                    ? 'bg-white/15 text-white'
                     : 'bg-slate-900 text-slate-500'
                 }`}>
                   {tab.count}
@@ -287,7 +297,7 @@ const MemoryDashboard = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search index memories..."
-              className="flex-1 bg-transparent py-1 text-xs text-slate-250 placeholder-slate-500 focus:outline-none"
+              className="flex-1 bg-transparent py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none"
             />
           </div>
         </div>
