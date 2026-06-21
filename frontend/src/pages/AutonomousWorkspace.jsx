@@ -253,7 +253,7 @@ const AutonomousWorkspace = () => {
       title: "Analyzing workspace code structures",
       desc: "Scanning configuration schemas and active components.",
       logs: [
-        "[INFO] Antigravity parser initialized...",
+        "[INFO] Workspace parser initialized...",
         "[INFO] Listing workspace contents relative to '.'",
         "[INFO] Discovered active files in backend/ and frontend/src/",
         "[SUCCESS] Directory hierarchy parsed successfully."
@@ -363,7 +363,7 @@ const AutonomousWorkspace = () => {
       logs: [
         "[SUCCESS] Task completed successfully.",
         "[AGENT] Workspace remains in clean compiled state.",
-        "[AGENT] Antigravity simulator returning idle status."
+        "[AGENT] Workspace agent returning idle status."
       ]
     });
 
@@ -379,7 +379,7 @@ const AutonomousWorkspace = () => {
     setAgentSteps(steps);
     setAgentStatus('RUNNING');
     setAgentStepIndex(0);
-    setAgentLogs(["[START] Antigravity Autonomous Agent process launched.", `[PROMPT] "${agentPrompt}"`]);
+    setAgentLogs(["[START] Workspace agent process launched.", `[PROMPT] "${agentPrompt}"`]);
 
     let stepIdx = 0;
     
@@ -714,12 +714,12 @@ const AutonomousWorkspace = () => {
           </div>
         </div>
 
-        {/* PANEL 4: Right Agent Console (Antigravity HUD) */}
+        {/* PANEL 4: Right Agent Console */}
         <div className="w-80 border-l border-slate-900 bg-slate-950 flex flex-col shrink-0 overflow-hidden h-full">
           <div className="p-4 border-b border-slate-900 bg-slate-950/60 shrink-0 flex items-center justify-between">
             <span className="text-2xs font-extrabold uppercase tracking-widest text-slate-400 font-mono flex items-center gap-1.5">
               <Cpu size={12} className="text-indigo-400 animate-spin-slow" />
-              Agent Console (Antigravity)
+              Agent Console
             </span>
             <span className={`text-[9px] font-bold font-mono px-1.5 py-0.5 rounded select-none uppercase tracking-wider ${
               agentStatus === 'RUNNING' 
@@ -740,7 +740,7 @@ const AutonomousWorkspace = () => {
                   value={agentPrompt}
                   onChange={(e) => setAgentPrompt(e.target.value)}
                   disabled={agentStatus === 'RUNNING'}
-                  placeholder="Task agent (e.g. 'Refactor authorization check patterns', 'Test backend connection')"
+                  placeholder="Ask the agent to inspect, refactor, or build from your uploaded project folder"
                   className="w-full h-20 rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500/30 resize-none disabled:opacity-50 font-sans"
                 />
               </div>
