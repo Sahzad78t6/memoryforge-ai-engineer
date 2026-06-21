@@ -202,7 +202,16 @@ export const uploadFileProject = async (files) => {
     console.error('API Error (uploadFileProject):', error.response?.data || error.message);
     throw error;
   }
+};export const uploadGithubProject = async (githubUrl) => {
+  try {
+    const response = await api.post('/upload/github', { github_url: githubUrl });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (uploadGithubProject):', error.response?.data || error.message);
+    throw error;
+  }
 };
+
 
 export const searchKnowledge = async (query) => {
   try {

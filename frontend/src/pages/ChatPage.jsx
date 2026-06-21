@@ -92,12 +92,24 @@ const ChatPage = () => {
         type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
         status: 'ready',
         fileId: responseData.file_id,
-        analysis: analysisObj,
+        analysis: analysisObj || {},
         summary: responseData.summary || analysisObj.summary || 'No summary available.',
         ocrStatus: responseData.status || 'success',
         extractedText: responseData.extracted_text || '',
-        technologies: responseData.technologies_detected || analysisObj.technologies || [],
-        memories: responseData.memories_created || analysisObj.memories || []
+        technologies: Array.isArray(responseData.technologies) 
+          ? responseData.technologies 
+          : Array.isArray(responseData.technologies_detected) 
+          ? responseData.technologies_detected 
+          : Array.isArray(analysisObj.technologies) 
+          ? analysisObj.technologies 
+          : [],
+        memories: Array.isArray(responseData.memories) 
+          ? responseData.memories 
+          : Array.isArray(responseData.memories_created) 
+          ? responseData.memories_created 
+          : Array.isArray(analysisObj.memories) 
+          ? analysisObj.memories 
+          : []
       });
 
       // Refresh total count metrics
@@ -105,7 +117,7 @@ const ChatPage = () => {
       setStoredCount(mems.count || 0);
     } catch (error) {
       console.error('Staging file upload failed:', error);
-      const errMsg = error.response?.data?.detail || 'Ingestion failed.';
+      const errMsg = error.response?.data?.message || error.response?.data?.detail || error.message || 'Ingestion failed.';
       setStagedFile({
         name: stagedName,
         size: selectedFiles.reduce((total, file) => total + file.size, 0),
@@ -308,23 +320,6 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-slate-950">
-      {/* Offline Status Warning */}
-      {backendStatus === 'offline' && (
-        <div className="flex items-center justify-between bg-red-500/10 border-b border-red-500/20 px-4 py-2 text-xs font-medium text-red-400">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={14} />
-            <span>Unable to connect to MemoryForge backend on {API_BASE_URL}.</span>
-          </div>
-          <button
-            onClick={loadInitialData}
-            className="flex items-center gap-1 hover:text-red-300 transition-colors uppercase font-bold text-2xs tracking-wider"
-          >
-            <RefreshCw size={10} className="animate-spin" />
-            <span>Retry Connection</span>
-          </button>
-        </div>
-      )}
-
       {/* Main Grid Workspace */}
       <div className="flex flex-1 flex-col lg:grid lg:grid-cols-4 overflow-hidden">
         {/* Chat Area (3 columns on desktop) */}
@@ -630,10 +625,23 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                 <div className="text-3xs font-semibold text-slate-500 uppercase tracking-wide">Recalls</div>
                 <div className="text-base font-bold text-brand-400 mt-0.5 font-mono">{retrievedCount}</div>
               </div>
-              <div className="bg-slate-950/40 p-2 rounded-lg border border-slate-900">
-                <div className="text-3xs font-semibold text-slate-500 uppercase tracking-wide">Success</div>
-                <div className="text-base font-bold text-emerald-400 mt-0.5 font-mono">
-                  {retrievedCount > 0 ? '100%' : '0%'}
+              <div className="bg-slate-950/40 p-2 rounded-lg border border-slate-900 flex flex-col justify-between items-center overflow-hidden">
+                <div className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Success %</div>
+                <div className="relative w-12 h-8 mt-1.5 flex items-center justify-center">
+                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 50">
+                    <path d="M 15 45 A 35 35 0 0 1 85 45" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
+                    <path d="M 15 45 A 35 35 0 0 1 85 45" fill="none" stroke="url(#success-gauge-gradient)" strokeWidth="12" strokeLinecap="round" 
+                      strokeDasharray="110" 
+                      strokeDashoffset={110 - (110 * (retrievedCount > 0 ? 100 : 0)) / 100} 
+                    />
+                    <defs>
+                      <linearGradient id="success-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#10b981" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="text-[10px] font-bold text-indigo-300 mt-2.5 font-mono z-10">{retrievedCount > 0 ? '100%' : '0%'}</div>
                 </div>
               </div>
             </div>

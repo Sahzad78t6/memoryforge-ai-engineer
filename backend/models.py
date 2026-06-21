@@ -63,3 +63,8 @@ class KnowledgeResponse(BaseModel):
     count: int = Field(..., description="Total count of knowledge entries")
     knowledge: List[KnowledgeItem] = Field(default_factory=list, description="List of knowledge base entries")
 
+
+class GithubImportRequest(BaseModel):
+    github_url: str = Field(..., description="The GitHub repository URL or shorthand (owner/repo)")
+
+

@@ -31,7 +31,8 @@ from models import (
     UserResponse, 
     TokenResponse,
     KnowledgeItem,
-    KnowledgeResponse
+    KnowledgeResponse,
+    GithubImportRequest
 )
 from memory import get_all_memories, save_memory, search_memory
 
@@ -943,7 +944,7 @@ async def upload_project(
     Accepts one or more uploaded project files/folders and stores them in a per-user workspace.
     ZIP archives are unpacked so the agent APIs can read and edit them directly.
     """
-    logger.info("[UPLOAD RECEIVED] Ingesting project ZIP or files")
+    logger.info("[PROJECT UPLOAD RECEIVED] Ingesting project ZIP or files")
     if not files:
         raise HTTPException(status_code=400, detail="At least one file must be uploaded.")
 
@@ -957,55 +958,170 @@ async def upload_project(
     project_root = get_user_project_root(user_id, project_name)
     project_root_path = Path(project_root)
 
-    # Reset the selected project folder so the latest upload fully determines the workspace contents.
+    # 1. Enforce total uploaded file size limit (50MB)
+    total_bytes = 0
+    file_contents = []
+    try:
+        for uploaded_file in files:
+            raw_content = await uploaded_file.read()
+            total_bytes += len(raw_content)
+            file_contents.append((uploaded_file, raw_content))
+    except Exception as e:
+        logger.error(f"[PROJECT ANALYSIS ERROR] Failed to read uploaded files: {str(e)}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": f"Failed to read uploaded files: {str(e)}",
+                "summary": "Upload failed during reading.",
+                "technologies": [],
+                "memories": []
+            }
+        )
+
+    if total_bytes > 50 * 1024 * 1024:
+        logger.error("[PROJECT ANALYSIS ERROR] Upload size limit exceeded (50MB).")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "Project too large.",
+                "summary": "Project too large.",
+                "technologies": [],
+                "memories": []
+            }
+        )
+
+    # 2. Reset the selected project folder so the latest upload fully determines the workspace contents.
     if project_root_path.exists():
         shutil.rmtree(project_root_path, ignore_errors=True)
     project_root_path.mkdir(parents=True, exist_ok=True)
 
     zip_bytes = None
     zip_filename = None
-    total_bytes = 0
+    has_zip = any(t[0].filename.lower().endswith(".zip") for t in file_contents)
 
     try:
-        for uploaded_file in files:
-            filename = uploaded_file.filename or ""
-            if not filename:
-                continue
+        if has_zip:
+            # Handle ZIP archive upload
+            for uploaded_file, raw_content in file_contents:
+                filename = uploaded_file.filename or ""
+                if filename.lower().endswith(".zip"):
+                    zip_bytes = raw_content
+                    zip_filename = filename
+                    break
 
-            normalized_filename = filename.replace('\\', '/')
-            path_parts = PurePosixPath(normalized_filename).parts
-            if any(part in ('.', '..') for part in path_parts):
-                raise HTTPException(status_code=400, detail="Invalid file path detected.")
+            logger.info("[ZIP OPENED] Successfully opened uploaded ZIP archive.")
+            with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+                non_ignored_members = []
+                for member in archive.infolist():
+                    if member.filename.endswith('/'):
+                        continue
+                    if file_parsers.is_ignored_path(member.filename):
+                        continue
+                    non_ignored_members.append(member)
 
-            raw_content = await uploaded_file.read()
-            total_bytes += len(raw_content)
-            if filename.lower().endswith(".zip"):
-                zip_bytes = raw_content
-                zip_filename = filename
-                with zipfile.ZipFile(io.BytesIO(raw_content)) as archive:
-                    for member in archive.infolist():
-                        if member.filename.endswith('/'):
-                            continue
-                        rel_path = PurePosixPath(member.filename)
-                        target_path = project_root_path / rel_path
-                        if not str(target_path.resolve()).startswith(str(project_root_path.resolve())):
-                            raise HTTPException(status_code=400, detail="Invalid archive path detected.")
+                file_count = len(non_ignored_members)
+                logger.info(f"[FILE COUNT] Project contains {file_count} non-ignored files.")
+
+                # Enforce file count limit (500 files)
+                if file_count > 500:
+                    logger.error("[PROJECT ANALYSIS ERROR] File count limit exceeded (500 files).")
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "status": "error",
+                            "message": "Project too large.",
+                            "summary": "Project too large.",
+                            "technologies": [],
+                            "memories": []
+                        }
+                    )
+
+                # Enforce decompressed size limit (50MB)
+                total_decompressed = sum(m.file_size for m in non_ignored_members)
+                if total_decompressed > 50 * 1024 * 1024:
+                    logger.error("[PROJECT ANALYSIS ERROR] Total decompressed size exceeds 50MB limit.")
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "status": "error",
+                            "message": "Project too large.",
+                            "summary": "Project too large.",
+                            "technologies": [],
+                            "memories": []
+                        }
+                    )
+
+                # Safe file-by-file extraction with traversal checks & error containment
+                for member in non_ignored_members:
+                    rel_path = PurePosixPath(member.filename)
+                    target_path = Path(project_root_path / rel_path).resolve()
+                    if not str(target_path).startswith(str(project_root_path.resolve())):
+                        logger.warning(f"Skipping traversal file inside ZIP: {member.filename}")
+                        continue
+
+                    try:
                         target_path.parent.mkdir(parents=True, exist_ok=True)
                         with archive.open(member) as src, open(target_path, 'wb') as dst:
                             shutil.copyfileobj(src, dst)
-            else:
-                relative_path = PurePosixPath(*path_parts)
-                target_path = project_root_path / relative_path
-                if not str(target_path.resolve()).startswith(str(project_root_path.resolve())):
-                    raise HTTPException(status_code=400, detail="Invalid upload path detected.")
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(target_path, 'wb') as dst:
-                    dst.write(raw_content)
+                    except Exception as fe:
+                        logger.error(f"[ERROR] Failed to write ZIP member {member.filename} to workspace: {str(fe)}")
+        else:
+            # Handle regular multi-file directory upload
+            non_ignored_files = []
+            for uploaded_file, raw_content in file_contents:
+                filename = uploaded_file.filename or ""
+                if not filename:
+                    continue
+                if file_parsers.is_ignored_path(filename):
+                    continue
+                non_ignored_files.append((uploaded_file, raw_content))
 
+            file_count = len(non_ignored_files)
+            logger.info(f"[FILE COUNT] Project contains {file_count} non-ignored files.")
+
+            # Enforce file count limit (500 files)
+            if file_count > 500:
+                logger.error("[PROJECT ANALYSIS ERROR] File count limit exceeded (500 files).")
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "status": "error",
+                        "message": "Project too large.",
+                        "summary": "Project too large.",
+                        "technologies": [],
+                        "memories": []
+                    }
+                )
+
+            # Safe write with traversal checks & error containment
+            for uploaded_file, raw_content in non_ignored_files:
+                filename = uploaded_file.filename or ""
+                normalized_filename = filename.replace('\\', '/')
+                path_parts = PurePosixPath(normalized_filename).parts
+                if any(part in ('.', '..') for part in path_parts):
+                    logger.warning(f"Skipping invalid upload path: {filename}")
+                    continue
+
+                try:
+                    relative_path = PurePosixPath(*path_parts)
+                    target_path = Path(project_root_path / relative_path).resolve()
+                    if not str(target_path).startswith(str(project_root_path.resolve())):
+                        logger.warning(f"Skipping traversal file upload: {filename}")
+                        continue
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(target_path, 'wb') as dst:
+                        dst.write(raw_content)
+                except Exception as fe:
+                    logger.error(f"[ERROR] Failed to write file {filename} to workspace: {str(fe)}")
+
+        # Count actual files written to user's workspace
         file_count = sum(1 for _ in project_root_path.rglob('*') if _.is_file())
 
         if zip_bytes and zip_filename:
             zip_content = file_parsers.parse_project_zip(zip_bytes)
+            logger.info("[KNOWLEDGE EXTRACTION START] Dispatching Groq knowledge extractor for ZIP project analysis.")
             analysis = knowledge_extractor.extract_structured_knowledge(zip_filename, zip_content, "project")
         else:
             analysis = {
@@ -1018,7 +1134,7 @@ async def upload_project(
                 "memories": []
             }
 
-        # Save to MongoDB 'uploaded_files'
+        # Save metadata to MongoDB 'uploaded_files'
         file_doc = {
             "filename": zip_filename or first_filename,
             "file_type": "project",
@@ -1028,17 +1144,20 @@ async def upload_project(
             "project_root": str(project_root_path),
             "files_in_workspace": file_count
         }
+        logger.info("[MONGODB SAVE] Saving uploaded project metadata to uploaded_files collection.")
         res_file = mongodb.db.uploaded_files.insert_one(file_doc)
         file_id = str(res_file.inserted_id)
 
         # Save metadata tables
+        logger.info("[MONGODB SAVE] Saving file summary details to file_summaries collection.")
         mongodb.db.file_summaries.insert_one({
             "file_id": file_id,
             "user_id": user_id,
             "summary": analysis.get("summary", ""),
             "timestamp": datetime.utcnow()
         })
-        
+
+        logger.info("[MONGODB SAVE] Saving project analysis details to project_analysis collection.")
         mongodb.db.project_analysis.insert_one({
             "file_id": file_id,
             "user_id": user_id,
@@ -1049,10 +1168,12 @@ async def upload_project(
             "security_findings": analysis.get("security_findings", []),
             "timestamp": datetime.utcnow()
         })
-        
+
         saved_memories = []
         for mem in analysis.get("memories", []):
             try:
+                # Log [PARCLE SAVE] for each memory block pushed
+                logger.info(f"[PARCLE SAVE] Pushing memory block into Parcle index: {mem.get('content', '')[:100]}...")
                 item = save_memory(
                     memory_type=mem.get("type", "architecture"),
                     content=mem.get("content", ""),
@@ -1062,10 +1183,18 @@ async def upload_project(
                 saved_memories.append(item)
             except Exception as mem_err:
                 logger.error(f"Failed to ingest memory from uploaded project: {str(mem_err)}")
-        
-        kb_memories = [{"type": m.type, "content": m.content, "source_filename": m.source_filename, "created_at": m.created_at} for m in saved_memories]
-        
+
+        kb_memories = []
+        for m in saved_memories:
+            kb_memories.append({
+                "type": getattr(m, "type", m.get("type") if isinstance(m, dict) else ""),
+                "content": getattr(m, "content", m.get("content") if isinstance(m, dict) else ""),
+                "source_filename": getattr(m, "source_filename", m.get("source_filename") if isinstance(m, dict) else ""),
+                "created_at": getattr(m, "created_at", m.get("created_at") if isinstance(m, dict) else datetime.utcnow().isoformat())
+            })
+
         # Unified database insertion into 'knowledge_base'
+        logger.info("[MONGODB SAVE] Saving unified project details to knowledge_base collection.")
         mongodb.db.knowledge_base.insert_one({
             "user_id": user_id,
             "source_type": "project",
@@ -1083,8 +1212,8 @@ async def upload_project(
             "timestamp": datetime.utcnow(),
             "file_id": file_id
         })
-        
-        logger.info(f"[UPLOAD COMPLETE] Successfully processed and ingested project: {zip_filename or first_filename}")
+
+        logger.info(f"[PROJECT ANALYSIS COMPLETE] Successfully processed and ingested project: {zip_filename or first_filename}")
         return {
             "status": "success",
             "source_type": "project",
@@ -1101,15 +1230,306 @@ async def upload_project(
             "memories_created": kb_memories
         }
     except Exception as e:
-        logger.error(f"[ERROR] Failed to ingest project: {str(e)}", exc_info=True)
+        logger.error(f"[PROJECT ANALYSIS ERROR] Failed to ingest project: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
                 "status": "error",
-                "detail": str(e),
-                "message": "Failed to upload and ingest project."
+                "message": "Failed to upload and ingest project.",
+                "summary": f"Ingestion error: {str(e)}",
+                "technologies": [],
+                "memories": []
             }
         )
+
+
+def parse_github_url(url: str) -> tuple:
+    import re
+    cleaned = url.strip()
+    if cleaned.endswith(".git"):
+        cleaned = cleaned[:-4]
+    if cleaned.endswith("/"):
+        cleaned = cleaned[:-1]
+        
+    pattern = r"(?:https?://)?(?:www\.)?github\.com/([^/]+)/([^/]+)"
+    match = re.match(pattern, cleaned)
+    if match:
+        return match.group(1), match.group(2)
+        
+    parts = [p for p in cleaned.split("/") if p]
+    if len(parts) == 2:
+        return parts[0], parts[1]
+        
+    return None, None
+
+
+@app.post("/upload/github")
+async def upload_github(
+    payload: GithubImportRequest,
+    current_user: dict = Depends(auth.get_current_user)
+):
+    """
+    Downloads a ZIP archive of a public GitHub repository, enforces standard limits,
+    unpacks files to the user's workspace, and performs knowledge/memory extraction.
+    """
+    logger.info(f"[PROJECT UPLOAD RECEIVED] Ingesting GitHub project from: {payload.github_url}")
+    
+    owner, repo = parse_github_url(payload.github_url)
+    if not owner or not repo:
+        logger.error(f"[PROJECT ANALYSIS ERROR] Invalid GitHub repository URL format: {payload.github_url}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "Invalid GitHub repository URL format.",
+                "summary": "Invalid URL format.",
+                "technologies": [],
+                "memories": []
+            }
+        )
+
+    user_id = str(current_user["_id"])
+    from tools import get_user_project_root
+    project_root = get_user_project_root(user_id, repo)
+    project_root_path = Path(project_root)
+
+    # Reset/clear destination directory
+    if project_root_path.exists():
+        shutil.rmtree(project_root_path, ignore_errors=True)
+    project_root_path.mkdir(parents=True, exist_ok=True)
+
+    # Fetch zipball from GitHub API
+    zip_url = f"https://api.github.com/repos/{owner}/{repo}/zipball"
+    headers = {"User-Agent": "MemoryForge-AI-Engineer"}
+    logger.info(f"Downloading ZIP archive from: {zip_url}")
+    
+    import requests
+    try:
+        response = requests.get(zip_url, headers=headers, allow_redirects=True, timeout=30)
+    except Exception as download_err:
+        logger.error(f"[PROJECT ANALYSIS ERROR] Connection error to GitHub: {str(download_err)}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": f"Connection error to GitHub: {str(download_err)}",
+                "summary": "GitHub connection failed.",
+                "technologies": [],
+                "memories": []
+            }
+        )
+
+    if response.status_code != 200:
+        logger.error(f"[PROJECT ANALYSIS ERROR] GitHub returned status code {response.status_code}: {response.reason}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": f"Failed to fetch repository from GitHub. Status {response.status_code}: {response.reason}",
+                "summary": "Failed to fetch repository.",
+                "technologies": [],
+                "memories": []
+            }
+        )
+
+    zip_bytes = response.content
+    total_bytes = len(zip_bytes)
+
+    # Enforce total download size limit (50MB)
+    if total_bytes > 50 * 1024 * 1024:
+        logger.error("[PROJECT ANALYSIS ERROR] Downloaded repository ZIP exceeds size limit (50MB).")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "Project too large.",
+                "summary": "Project too large.",
+                "technologies": [],
+                "memories": []
+            }
+        )
+
+    logger.info("[ZIP OPENED] Successfully opened downloaded GitHub ZIP archive.")
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+            # GitHub zipballs place everything inside a dynamic root folder: e.g. "owner-repo-commitsha/"
+            # We want to strip off the dynamic first directory component when extracting to project_root.
+            non_ignored_members = []
+            for member in archive.infolist():
+                if member.filename.endswith('/'):
+                    continue
+                    
+                member_parts = PurePosixPath(member.filename).parts
+                if len(member_parts) <= 1:
+                    continue
+                    
+                relative_sub_path = "/".join(member_parts[1:])
+                if file_parsers.is_ignored_path(relative_sub_path):
+                    continue
+                    
+                member.filename = relative_sub_path
+                non_ignored_members.append(member)
+
+            file_count = len(non_ignored_members)
+            logger.info(f"[FILE COUNT] Project contains {file_count} non-ignored files.")
+
+            # Enforce file count limit (500 files)
+            if file_count > 500:
+                logger.error("[PROJECT ANALYSIS ERROR] File count limit exceeded (500 files).")
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "status": "error",
+                        "message": "Project too large.",
+                        "summary": "Project too large.",
+                        "technologies": [],
+                        "memories": []
+                    }
+                )
+
+            # Enforce decompressed size limit (50MB)
+            total_decompressed = sum(m.file_size for m in non_ignored_members)
+            if total_decompressed > 50 * 1024 * 1024:
+                logger.error("[PROJECT ANALYSIS ERROR] Total decompressed size exceeds 50MB limit.")
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "status": "error",
+                        "message": "Project too large.",
+                        "summary": "Project too large.",
+                        "technologies": [],
+                        "memories": []
+                    }
+                )
+
+            # Extract files to workspace
+            for member in non_ignored_members:
+                rel_path = PurePosixPath(member.filename)
+                target_path = Path(project_root_path / rel_path).resolve()
+                if not str(target_path).startswith(str(project_root_path.resolve())):
+                    logger.warning(f"Skipping traversal file inside ZIP: {member.filename}")
+                    continue
+
+                try:
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(member) as src, open(target_path, 'wb') as dst:
+                        shutil.copyfileobj(src, dst)
+                except Exception as fe:
+                    logger.error(f"[ERROR] Failed to write ZIP member {member.filename} to workspace: {str(fe)}")
+
+        # Run knowledge extraction
+        zip_content = file_parsers.parse_project_zip(zip_bytes)
+        logger.info("[KNOWLEDGE EXTRACTION START] Dispatching Groq knowledge extractor for ZIP project analysis.")
+        analysis = knowledge_extractor.extract_structured_knowledge(f"{owner}_{repo}.zip", zip_content, "project")
+
+        # Save metadata to MongoDB 'uploaded_files'
+        file_doc = {
+            "filename": f"{owner}_{repo}.zip",
+            "file_type": "project",
+            "size": total_bytes,
+            "user_id": user_id,
+            "timestamp": datetime.utcnow(),
+            "project_root": str(project_root_path),
+            "files_in_workspace": file_count
+        }
+        logger.info("[MONGODB SAVE] Saving uploaded project metadata to uploaded_files collection.")
+        res_file = mongodb.db.uploaded_files.insert_one(file_doc)
+        file_id = str(res_file.inserted_id)
+
+        # Save metadata tables
+        logger.info("[MONGODB SAVE] Saving file summary details to file_summaries collection.")
+        mongodb.db.file_summaries.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "summary": analysis.get("summary", ""),
+            "timestamp": datetime.utcnow()
+        })
+
+        logger.info("[MONGODB SAVE] Saving project analysis details to project_analysis collection.")
+        mongodb.db.project_analysis.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "technologies": analysis.get("technologies", []),
+            "architecture": analysis.get("architecture", "Unknown"),
+            "decisions": analysis.get("decisions", []),
+            "dependencies": analysis.get("dependencies", []),
+            "security_findings": analysis.get("security_findings", []),
+            "timestamp": datetime.utcnow()
+        })
+
+        saved_memories = []
+        for mem in analysis.get("memories", []):
+            try:
+                logger.info(f"[PARCLE SAVE] Pushing memory block into Parcle index: {mem.get('content', '')[:100]}...")
+                item = save_memory(
+                    memory_type=mem.get("type", "architecture"),
+                    content=mem.get("content", ""),
+                    user_id=user_id,
+                    source_filename=f"{owner}_{repo}.zip"
+                )
+                saved_memories.append(item)
+            except Exception as mem_err:
+                logger.error(f"Failed to ingest memory from uploaded project: {str(mem_err)}")
+
+        kb_memories = []
+        for m in saved_memories:
+            kb_memories.append({
+                "type": getattr(m, "type", m.get("type") if isinstance(m, dict) else ""),
+                "content": getattr(m, "content", m.get("content") if isinstance(m, dict) else ""),
+                "source_filename": getattr(m, "source_filename", m.get("source_filename") if isinstance(m, dict) else ""),
+                "created_at": getattr(m, "created_at", m.get("created_at") if isinstance(m, dict) else datetime.utcnow().isoformat())
+            })
+
+        # Unified database insertion into 'knowledge_base'
+        logger.info("[MONGODB SAVE] Saving unified project details to knowledge_base collection.")
+        mongodb.db.knowledge_base.insert_one({
+            "user_id": user_id,
+            "source_type": "project",
+            "filename": f"{owner}_{repo}.zip",
+            "summary": analysis.get("summary", ""),
+            "technologies": analysis.get("technologies", []),
+            "architecture": analysis.get("architecture", "Unknown"),
+            "recommendations": analysis.get("decisions", []),
+            "generated_memories": kb_memories,
+            "created_at": datetime.utcnow(),
+            # Legacy keys:
+            "title": f"Project Workspace: {owner}_{repo}.zip",
+            "content": f"Uploaded project files and workspace contents for {owner}_{repo}.zip",
+            "type": "project",
+            "timestamp": datetime.utcnow(),
+            "file_id": file_id
+        })
+
+        logger.info(f"[PROJECT ANALYSIS COMPLETE] Successfully processed and ingested GitHub repository: {owner}/{repo}")
+        return {
+            "status": "success",
+            "source_type": "project",
+            "filename": f"{owner}_{repo}.zip",
+            "summary": analysis.get("summary", ""),
+            "technologies": analysis.get("technologies", []),
+            "memories": kb_memories,
+            # Backward compatibility fields:
+            "file_id": file_id,
+            "project_root": str(project_root_path),
+            "files_in_workspace": file_count,
+            "analysis": analysis,
+            "memories_created_count": len(saved_memories),
+            "memories_created": kb_memories
+        }
+    except Exception as e:
+        logger.error(f"[PROJECT ANALYSIS ERROR] Failed to ingest project from GitHub: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": "Failed to upload and ingest project from GitHub.",
+                "summary": f"Ingestion error: {str(e)}",
+                "technologies": [],
+                "memories": []
+            }
+        )
+
 
 @app.get("/knowledge/search")
 async def search_knowledge(

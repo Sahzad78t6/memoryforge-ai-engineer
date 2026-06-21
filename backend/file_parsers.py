@@ -8,6 +8,15 @@ import pytesseract
 
 logger = logging.getLogger("memoryforge_backend")
 
+def is_ignored_path(path: str) -> bool:
+    ignored_dirs = {"node_modules", ".venv", ".git", "dist", "build", "coverage", "__pycache__", "target", "out", "vendor"}
+    normalized = path.replace("\\", "/")
+    parts = normalized.split("/")
+    for part in parts:
+        if part in ignored_dirs:
+            return True
+    return False
+
 def parse_pdf(file_bytes: bytes) -> str:
     """
     Extracts raw text content from PDF file bytes page by page.
@@ -108,7 +117,10 @@ def parse_project_zip(file_bytes: bytes) -> str:
         text_summary = []
         
         with zipfile.ZipFile(zip_file) as z:
-            file_list = z.namelist()
+            logger.info("[ZIP OPENED] Successfully opened uploaded ZIP archive.")
+            # Filter file list to ignore folders/files matching ignored directories
+            file_list = [f for f in z.namelist() if not is_ignored_path(f)]
+            logger.info(f"[FILE COUNT] ZIP contains {len(file_list)} non-ignored files.")
             
             # 1. Document the directory tree structure
             text_summary.append("=== Project File Structure Tree ===")
@@ -144,14 +156,17 @@ def parse_project_zip(file_bytes: bytes) -> str:
             # Read configuration files
             text_summary.append("=== Configuration & Setup Files Content ===")
             for path in config_files_found[:8]: # Limit to first 8 configs
+                logger.info(f"[FILE PARSE START] Reading config file inside ZIP: {path}")
                 try:
                     with z.open(path) as f:
                         content = f.read().decode('utf-8', errors='ignore')
                         text_summary.append(f"\n--- File: {path} ---")
                         # Limit single file reading to 8000 characters
                         text_summary.append(content[:8000])
+                    logger.info(f"[FILE PARSE SUCCESS] Successfully read config file inside ZIP: {path}")
                 except Exception as fe:
                     text_summary.append(f"\n--- File: {path} (Error reading: {str(fe)}) ---")
+                    logger.error(f"[ERROR] Error reading config file {path} inside ZIP: {str(fe)}")
             text_summary.append("===========================================\n")
             
             # Read primary code files (up to a budget limit of 30,000 characters total)
@@ -162,6 +177,7 @@ def parse_project_zip(file_bytes: bytes) -> str:
             for path in code_files_found[:10]: # Limit to first 10 code files
                 if char_count >= code_char_budget:
                     break
+                logger.info(f"[FILE PARSE START] Reading code file inside ZIP: {path}")
                 try:
                     with z.open(path) as f:
                         content = f.read().decode('utf-8', errors='ignore')
@@ -169,8 +185,10 @@ def parse_project_zip(file_bytes: bytes) -> str:
                         text_summary.append(f"\n--- Code File: {path} ---")
                         text_summary.append(snippet)
                         char_count += len(snippet)
+                    logger.info(f"[FILE PARSE SUCCESS] Successfully read code file inside ZIP: {path}")
                 except Exception as fe:
                     text_summary.append(f"\n--- Code File: {path} (Error reading: {str(fe)}) ---")
+                    logger.error(f"[ERROR] Error reading code file {path} inside ZIP: {str(fe)}")
             text_summary.append("=============================")
             
         return "\n".join(text_summary)

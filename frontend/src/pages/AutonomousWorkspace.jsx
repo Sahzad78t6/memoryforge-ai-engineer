@@ -29,7 +29,8 @@ import {
   getWorkspaceFile, 
   saveWorkspaceFile, 
   runWorkspaceCommand,
-  uploadFileProject
+  uploadFileProject,
+  uploadGithubProject
 } from '../services/api';
 
 const AutonomousWorkspace = () => {
@@ -75,6 +76,8 @@ const AutonomousWorkspace = () => {
   const [uploadingProject, setUploadingProject] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
   const [draggingUpload, setDraggingUpload] = useState(false);
+  const [githubUrl, setGithubUrl] = useState('');
+  const [importingGithub, setImportingGithub] = useState(false);
 
   // Fetch Root Files initially
   const loadRootFiles = async () => {
@@ -106,9 +109,30 @@ const AutonomousWorkspace = () => {
       await loadRootFiles();
     } catch (err) {
       console.error('Project upload failed:', err);
-      setUploadMessage(err.response?.data?.detail || 'Upload failed. Please try again.');
+      setUploadMessage(err.response?.data?.message || err.response?.data?.detail || err.message || 'Upload failed. Please try again.');
     } finally {
       setUploadingProject(false);
+    }
+  };
+
+  const importGithubRepo = async () => {
+    if (!githubUrl.trim()) return;
+    setImportingGithub(true);
+    setUploadMessage('Importing project from GitHub...');
+    try {
+      const response = await uploadGithubProject(githubUrl);
+      setUploadMessage(
+        `Imported ${response.files_in_workspace || 0} file(s) from GitHub into the workspace.`
+      );
+      setGithubUrl('');
+      await loadRootFiles();
+    } catch (err) {
+      console.error('GitHub import failed:', err);
+      setUploadMessage(
+        err.response?.data?.message || err.response?.data?.detail || err.message || 'GitHub import failed. Please try again.'
+      );
+    } finally {
+      setImportingGithub(false);
     }
   };
   const handleProjectUpload = async (e) => {
@@ -560,10 +584,29 @@ const AutonomousWorkspace = () => {
               Subprocess Channel Connected
             </span>
           </div>
+          {/* GitHub Import Link */}
+          <div className="flex items-center gap-1 border border-slate-700/50 bg-slate-900/60 rounded-lg px-2 py-1 text-xs">
+            <input
+              type="text"
+              placeholder="GitHub Link (owner/repo)"
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+              disabled={importingGithub || uploadingProject}
+              className="bg-transparent border-none text-[11px] text-slate-300 placeholder-slate-500 focus:outline-none w-44 font-mono"
+            />
+            <button
+              onClick={importGithubRepo}
+              disabled={importingGithub || uploadingProject || !githubUrl.trim()}
+              className="text-indigo-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold uppercase disabled:opacity-30 disabled:pointer-events-none"
+            >
+              {importingGithub ? 'Importing...' : 'Import'}
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => uploadInputRef.current?.click()}
-            disabled={uploadingProject}
+            disabled={uploadingProject || importingGithub}
             className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer disabled:opacity-50"
             title="Upload a project folder or files"
           >
