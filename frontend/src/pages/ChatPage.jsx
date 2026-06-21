@@ -192,21 +192,41 @@ const ChatPage = () => {
         return;
       }
       
-      // Build detailed prompt payload context
-      const summary = stagedFile.summary;
-      const technologies = stagedFile.analysis?.technologies?.length > 0 ? stagedFile.analysis.technologies.join(', ') : "None identified";
-      const dependencies = stagedFile.analysis?.dependencies?.length > 0 
-        ? stagedFile.analysis.dependencies.map(d => typeof d === 'object' ? `${d.name} (${d.version || 'any'})` : d).join(', ')
+      const analysis = stagedFile.analysis || {};
+      const summary = stagedFile.summary || "No summary provided.";
+      
+      const technologies = Array.isArray(analysis.technologies) 
+        ? analysis.technologies.filter(Boolean).join(', ') 
         : "None identified";
-      const architecture = stagedFile.analysis?.architecture || "Standard";
-      const decisions = stagedFile.analysis?.decisions?.length > 0 
-        ? stagedFile.analysis.decisions.map((d, i) => `\n${i+1}. ${d}`).join('') 
+        
+      const dependencies = Array.isArray(analysis.dependencies)
+        ? analysis.dependencies
+            .filter(Boolean)
+            .map(d => (d && typeof d === 'object') ? `${d.name || 'unknown'} (${d.version || 'any'})` : String(d))
+            .join(', ')
+        : "None identified";
+        
+      const architecture = analysis.architecture || "Standard";
+      
+      const decisions = Array.isArray(analysis.decisions)
+        ? analysis.decisions
+            .filter(Boolean)
+            .map((d, i) => `\n${i+1}. ${d}`)
+            .join('')
         : "None cataloged";
-      const security = stagedFile.analysis?.security_findings?.length > 0 
-        ? stagedFile.analysis.security_findings.map(s => `\n⚠️ ${s}`).join('')
+        
+      const security = Array.isArray(analysis.security_findings)
+        ? analysis.security_findings
+            .filter(Boolean)
+            .map(s => `\n⚠️ ${s}`)
+            .join('')
         : "✅ No threats detected";
-      const memories = stagedFile.analysis?.memories?.length > 0
-        ? stagedFile.analysis.memories.map(m => `\n🧠 *[${m.type}]* ${m.content}`).join('')
+        
+      const memories = Array.isArray(analysis.memories)
+        ? analysis.memories
+            .filter(m => m && m.content)
+            .map(m => `\n🧠 *[${m.type || 'architecture'}]* ${m.content}`)
+            .join('')
         : "None generated";
 
       queryToSend = `[Context from file: ${stagedFile.name}
