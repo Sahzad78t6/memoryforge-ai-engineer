@@ -167,4 +167,75 @@ export const getAnalyticsData = async () => {
   }
 };
 
+// --- Phase 7: File Intelligence & Project Knowledge Ingestion ---
+export const uploadFileDoc = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/upload/file', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (uploadFileDoc):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const uploadFileImage = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (uploadFileImage):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const uploadFileProject = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/upload/project', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (uploadFileProject):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const searchKnowledge = async (query) => {
+  try {
+    const response = await api.get('/knowledge/search', {
+      params: { query },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API Error (searchKnowledge):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getKnowledgeHistory = async () => {
+  try {
+    const response = await api.get('/knowledge/history');
+    return response.data;
+  } catch (error) {
+    console.error('API Error (getKnowledgeHistory):', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default api;

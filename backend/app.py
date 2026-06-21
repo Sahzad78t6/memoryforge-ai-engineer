@@ -15,6 +15,8 @@ import config
 import mongodb
 import auth
 import parcle_client
+import file_parsers
+import knowledge_extractor
 from models import (
     ChatRequest, 
     ChatResponse, 
@@ -411,6 +413,10 @@ async def get_analytics(current_user: Optional[dict] = Depends(get_optional_user
         total_chats = mongodb.db.chat_history.count_documents({})
         total_knowledge = mongodb.db.knowledge_base.count_documents({})
         
+        # Ingest files metrics
+        total_files = mongodb.db.uploaded_files.count_documents({})
+        total_projects = mongodb.db.uploaded_files.count_documents({"file_type": "project"})
+        
         # Memory retrieval count
         retrieval_doc = mongodb.db.analytics.find_one({"metric": "memory_retrieval_count"})
         retrieval_count = retrieval_doc.get("value", 0) if retrieval_doc else 0
@@ -446,8 +452,347 @@ async def get_analytics(current_user: Optional[dict] = Depends(get_optional_user
                 "ADMIN": admin_count,
                 "USER": regular_user_count
             },
-            "memory_categories": category_breakdown
+            "memory_categories": category_breakdown,
+            "total_files_uploaded": total_files,
+            "total_projects_analyzed": total_projects,
+            "queries_answered": total_chats,
+            "knowledge_items_generated": total_knowledge + total_files
         }
     except Exception as e:
         logger.error(f"Failed to fetch analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- File & Project Knowledge Ingestion API ---
+
+@app.post("/upload/file")
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(auth.get_current_user)
+):
+    """
+    Accepts a single document or source code file, parses text,
+    analyzes with Groq, saves structured findings in Atlas, and
+    saves generated memories to MongoDB and Parcle.
+    """
+    user_id = str(current_user["_id"])
+    filename = file.filename
+    content_bytes = await file.read()
+    file_size = len(content_bytes)
+    
+    # 1. Parse text based on extension
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    content_text = ""
+    
+    try:
+        if ext == "pdf":
+            content_text = file_parsers.parse_pdf(content_bytes)
+        elif ext == "docx":
+            content_text = file_parsers.parse_docx(content_bytes)
+        else:
+            # Try plain text decoding
+            try:
+                content_text = content_bytes.decode("utf-8", errors="ignore")
+            except Exception:
+                content_text = f"[Binary Content: Extension {ext}]"
+                
+        if not content_text.strip():
+            content_text = f"Empty content parsed from {filename}"
+            
+        # 2. Extract structured knowledge using Groq LLM
+        analysis = knowledge_extractor.extract_structured_knowledge(filename, content_text, "document")
+        
+        # 3. Save to MongoDB 'uploaded_files'
+        file_doc = {
+            "filename": filename,
+            "file_type": ext,
+            "size": file_size,
+            "user_id": user_id,
+            "timestamp": datetime.utcnow()
+        }
+        res_file = mongodb.db.uploaded_files.insert_one(file_doc)
+        file_id = str(res_file.inserted_id)
+        
+        # 4. Save to 'file_summaries'
+        mongodb.db.file_summaries.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "summary": analysis.get("summary", ""),
+            "timestamp": datetime.utcnow()
+        })
+        
+        # 5. Save to 'project_analysis'
+        mongodb.db.project_analysis.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "technologies": analysis.get("technologies", []),
+            "architecture": analysis.get("architecture", "Unknown"),
+            "decisions": analysis.get("decisions", []),
+            "dependencies": analysis.get("dependencies", []),
+            "security_findings": analysis.get("security_findings", []),
+            "timestamp": datetime.utcnow()
+        })
+        
+        # 6. Save to 'knowledge_base'
+        mongodb.db.knowledge_base.insert_one({
+            "title": f"Document: {filename}",
+            "content": content_text[:10000],
+            "user_id": user_id,
+            "timestamp": datetime.utcnow(),
+            "file_id": file_id
+        })
+        
+        # 7. Ingest memory items
+        saved_memories = []
+        for mem in analysis.get("memories", []):
+            try:
+                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
+                saved_memories.append(item)
+            except Exception as mem_err:
+                logger.error(f"Failed to ingest memory during upload: {str(mem_err)}")
+                
+        return {
+            "file_id": file_id,
+            "filename": filename,
+            "size": file_size,
+            "analysis": analysis,
+            "memories_created_count": len(saved_memories)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to upload document file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/upload/image")
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(auth.get_current_user)
+):
+    """
+    Accepts an image file, runs OCR text extraction, analyzes with Groq,
+    and indexes findings and memories.
+    """
+    user_id = str(current_user["_id"])
+    filename = file.filename
+    content_bytes = await file.read()
+    file_size = len(content_bytes)
+    
+    try:
+        # 1. Parse Image OCR content
+        ocr_content = file_parsers.parse_image_ocr(content_bytes)
+        
+        # 2. Extract structured knowledge using Groq LLM
+        analysis = knowledge_extractor.extract_structured_knowledge(filename, ocr_content, "image")
+        
+        # 3. Save to MongoDB 'uploaded_files'
+        file_doc = {
+            "filename": filename,
+            "file_type": "image",
+            "size": file_size,
+            "user_id": user_id,
+            "timestamp": datetime.utcnow()
+        }
+        res_file = mongodb.db.uploaded_files.insert_one(file_doc)
+        file_id = str(res_file.inserted_id)
+        
+        # 4. Save summaries and analysis details
+        mongodb.db.file_summaries.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "summary": analysis.get("summary", ""),
+            "timestamp": datetime.utcnow()
+        })
+        
+        mongodb.db.project_analysis.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "technologies": analysis.get("technologies", []),
+            "architecture": analysis.get("architecture", "Unknown"),
+            "decisions": analysis.get("decisions", []),
+            "dependencies": analysis.get("dependencies", []),
+            "security_findings": analysis.get("security_findings", []),
+            "timestamp": datetime.utcnow()
+        })
+        
+        mongodb.db.knowledge_base.insert_one({
+            "title": f"Image Diagram: {filename}",
+            "content": ocr_content[:10000],
+            "user_id": user_id,
+            "timestamp": datetime.utcnow(),
+            "file_id": file_id
+        })
+        
+        # 5. Ingest memories
+        saved_memories = []
+        for mem in analysis.get("memories", []):
+            try:
+                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
+                saved_memories.append(item)
+            except Exception as mem_err:
+                logger.error(f"Failed to ingest memory from image: {str(mem_err)}")
+                
+        return {
+            "file_id": file_id,
+            "filename": filename,
+            "size": file_size,
+            "analysis": analysis,
+            "memories_created_count": len(saved_memories)
+        }
+    except Exception as e:
+        logger.error(f"Failed to ingest image: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/upload/project")
+async def upload_project(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(auth.get_current_user)
+):
+    """
+    Accepts a project ZIP archive, unpacks structure and code, analyzes with Groq,
+    and registers project analysis metadata and memories.
+    """
+    user_id = str(current_user["_id"])
+    filename = file.filename
+    content_bytes = await file.read()
+    file_size = len(content_bytes)
+    
+    try:
+        # 1. Parse ZIP file contents
+        zip_content = file_parsers.parse_project_zip(content_bytes)
+        
+        # 2. Extract structured knowledge using Groq LLM
+        analysis = knowledge_extractor.extract_structured_knowledge(filename, zip_content, "project")
+        
+        # 3. Save to MongoDB 'uploaded_files'
+        file_doc = {
+            "filename": filename,
+            "file_type": "project",
+            "size": file_size,
+            "user_id": user_id,
+            "timestamp": datetime.utcnow()
+        }
+        res_file = mongodb.db.uploaded_files.insert_one(file_doc)
+        file_id = str(res_file.inserted_id)
+        
+        # 4. Save metadata tables
+        mongodb.db.file_summaries.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "summary": analysis.get("summary", ""),
+            "timestamp": datetime.utcnow()
+        })
+        
+        mongodb.db.project_analysis.insert_one({
+            "file_id": file_id,
+            "user_id": user_id,
+            "technologies": analysis.get("technologies", []),
+            "architecture": analysis.get("architecture", "Unknown"),
+            "decisions": analysis.get("decisions", []),
+            "dependencies": analysis.get("dependencies", []),
+            "security_findings": analysis.get("security_findings", []),
+            "timestamp": datetime.utcnow()
+        })
+        
+        mongodb.db.knowledge_base.insert_one({
+            "title": f"Project Archive: {filename}",
+            "content": f"Ingested ZIP structure and configuration contents for {filename}",
+            "user_id": user_id,
+            "timestamp": datetime.utcnow(),
+            "file_id": file_id
+        })
+        
+        # 5. Ingest memories
+        saved_memories = []
+        for mem in analysis.get("memories", []):
+            try:
+                item = save_memory(mem.get("type", "architecture"), mem.get("content", ""), user_id=user_id)
+                saved_memories.append(item)
+            except Exception as mem_err:
+                logger.error(f"Failed to ingest memory from project ZIP: {str(mem_err)}")
+                
+        return {
+            "file_id": file_id,
+            "filename": filename,
+            "size": file_size,
+            "analysis": analysis,
+            "memories_created_count": len(saved_memories)
+        }
+    except Exception as e:
+        logger.error(f"Failed to ingest project: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/knowledge/search")
+async def search_knowledge(
+    query: str,
+    current_user: dict = Depends(auth.get_current_user)
+):
+    """
+    Searches matching items inside knowledge_base and file_summaries.
+    """
+    user_id = str(current_user["_id"])
+    if not query.strip():
+        return []
+        
+    try:
+        query_regex = {"$regex": query, "$options": "i"}
+        
+        # Search summaries and knowledge docs
+        cursor_kb = mongodb.db.knowledge_base.find({
+            "user_id": user_id,
+            "$or": [
+                {"title": query_regex},
+                {"content": query_regex}
+            ]
+        })
+        
+        results = []
+        for doc in cursor_kb:
+            results.append({
+                "type": "document",
+                "id": str(doc["_id"]),
+                "title": doc.get("title", ""),
+                "content_preview": doc.get("content", "")[:300] + ("..." if len(doc.get("content", "")) > 300 else ""),
+                "timestamp": doc.get("timestamp").isoformat() if isinstance(doc.get("timestamp"), datetime) else doc.get("timestamp")
+            })
+            
+        return results
+    except Exception as e:
+        logger.error(f"Failed to search knowledge base: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/knowledge/history")
+async def get_knowledge_history(
+    current_user: dict = Depends(auth.get_current_user)
+):
+    """
+    Lists uploaded files metadata and attaches their generated summaries and project findings.
+    """
+    user_id = str(current_user["_id"])
+    try:
+        files = list(mongodb.db.uploaded_files.find({"user_id": user_id}).sort("timestamp", -1))
+        
+        history = []
+        for f in files:
+            file_id = str(f["_id"])
+            summary_doc = mongodb.db.file_summaries.find_one({"file_id": file_id})
+            analysis_doc = mongodb.db.project_analysis.find_one({"file_id": file_id})
+            
+            history.append({
+                "file_id": file_id,
+                "filename": f.get("filename", ""),
+                "file_type": f.get("file_type", ""),
+                "size": f.get("size", 0),
+                "timestamp": f.get("timestamp").isoformat() if isinstance(f.get("timestamp"), datetime) else f.get("timestamp"),
+                "summary": summary_doc.get("summary", "") if summary_doc else "No summary generated.",
+                "analysis": {
+                    "technologies": analysis_doc.get("technologies", []) if analysis_doc else [],
+                    "architecture": analysis_doc.get("architecture", "Unknown") if analysis_doc else "Unknown",
+                    "decisions": analysis_doc.get("decisions", []) if analysis_doc else [],
+                    "dependencies": analysis_doc.get("dependencies", []) if analysis_doc else [],
+                    "security_findings": analysis_doc.get("security_findings", []) if analysis_doc else []
+                }
+            })
+        return history
+    except Exception as e:
+        logger.error(f"Failed to retrieve knowledge history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

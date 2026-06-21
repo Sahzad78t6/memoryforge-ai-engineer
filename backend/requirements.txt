@@ -9,4 +9,8 @@ pymongo>=4.0.0
 bcrypt>=4.0.0
 pyjwt>=2.0.0
 python-multipart>=0.0.9
+pypdf>=3.0.0
+python-docx>=0.8.11
+Pillow>=9.0.0
+pytesseract>=0.3.10
 
