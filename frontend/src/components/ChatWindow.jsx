@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import MessageBubble from './MessageBubble';
-import { Cpu, Database, Zap, Sparkles, Brain, Magnet } from 'lucide-react';
+import { Cpu, Database, Zap, Sparkles, Brain, Magnet, BrainCircuit, RefreshCcw } from 'lucide-react';
 import heroImage from '../assets/hero.png';
 
 const ChatWindow = ({ messages = [], loading = false }) => {
@@ -13,73 +13,76 @@ const ChatWindow = ({ messages = [], loading = false }) => {
 
   if (messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center select-none overflow-y-auto">
-        {/* Floating 3D Cube Graphic */}
-        <div className="relative w-72 h-72 flex items-center justify-center shrink-0">
+      <div className="flex-1 flex flex-col items-center pt-10 px-8 pb-32 text-center select-none overflow-y-auto w-full">
+        {/* Central 3D Graphic Placeholder */}
+        <div className="w-full max-w-2xl h-64 mb-6 relative flex items-center justify-center shrink-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#09090e] to-[#09090e] z-0"></div>
           <img 
             src={heroImage} 
             alt="MemoryForge Illustration" 
-            className="w-full h-full object-contain animate-float"
+            className="w-48 h-48 object-contain animate-float z-10"
           />
         </div>
         
         {/* Glowing Headings */}
-        <h1 className="text-3xl font-extrabold text-white tracking-tight font-sans">
-          Build AI Systems
+        <h1 className="text-5xl font-extrabold text-center mb-4 leading-tight text-white tracking-tight">
+          Build AI Systems <br/>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-cyan-300 to-teal-200 filter drop-shadow-[0_0_15px_rgba(99,102,241,0.25)]">
+            With Persistent Memory
+          </span>
         </h1>
-        <h2 className="text-3xl font-extrabold bg-gradient-to-r from-cyan-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent mb-4 font-sans filter drop-shadow-[0_0_12px_rgba(99,102,241,0.25)]">
-          With Persistent Memory
-        </h2>
         
         {/* Description Subtitle */}
-        <p className="max-w-lg text-xs text-slate-400 leading-relaxed font-sans mb-6">
+        <p className="text-center text-gray-400 max-w-2xl mb-8 text-sm leading-relaxed">
           MemoryForge empowers AI engineers with long-term memory, architecture retention,
           contextual reasoning, and intelligent retrieval across projects and conversations.
         </p>
 
         {/* Feature Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
-          <div className="flex items-center gap-1.5 rounded-full border border-purple-500/20 bg-purple-500/5 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-purple-400 shrink-0" />
-            <span>Persistent Memory</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-            <Zap size={11} className="text-amber-400 shrink-0" />
-            <span>Context Retrieval</span>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full border border-pink-500/20 bg-pink-500/5 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-pink-300">
-            <Sparkles size={11} className="text-pink-400 shrink-0" />
-            <span>Agent Engineering</span>
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
+          {['Persistent Memory', 'Context Retrieval', 'Agent Engineering'].map((tag, i) => (
+            <span key={i} className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300 flex items-center gap-2">
+              {i === 0 && <span className="w-2 h-2 rounded-full bg-pink-500"></span>}
+              {i === 1 && <Zap size={12} className="text-orange-400"/>}
+              {i === 2 && <RefreshCcw size={12} className="text-purple-400"/>}
+              {tag}
+            </span>
+          ))}
         </div>
 
-        {/* Action / Explanation Cards */}
-        <div className="grid w-full max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2 text-left">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 hover:border-slate-700/60 transition-all flex gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-600/10 border border-purple-500/20 text-purple-400">
-              <Brain size={18} />
-            </div>
+        {/* Feature Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl text-left">
+          {/* Card 1 */}
+          <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden group hover:border-white/20 transition-all flex flex-col justify-between min-h-[140px]">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-300">Seed Preferences</span>
+              <div className="flex items-center gap-2 text-sm font-semibold mb-3 text-white">
+                <BrainCircuit size={16} className="text-purple-400" />
+                SEED PREFERENCES
               </div>
-              <p className="text-2xs text-slate-400 leading-normal font-sans">
-                Store architecture decisions and coding standards so assistant can remember and apply later.
+              <p className="text-xs text-gray-400 leading-relaxed pr-16">
+                Store architecture decisions and coding standards that your AI assistant can remember and apply later.
               </p>
+            </div>
+            {/* Decorative graphic placeholder */}
+            <div className="absolute right-[-20px] bottom-[-20px] opacity-50 group-hover:opacity-80 transition-all">
+               <BrainCircuit size={80} className="text-purple-900/30" />
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 hover:border-slate-700/60 transition-all flex gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600/10 border border-emerald-500/20 text-emerald-400">
-              <Magnet size={18} />
-            </div>
+          {/* Card 2 */}
+          <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden group hover:border-white/20 transition-all flex flex-col justify-between min-h-[140px]">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-300">Persistent Retrieval</span>
+              <div className="flex items-center gap-2 text-sm font-semibold mb-3 text-white">
+                <Database size={16} className="text-teal-400" />
+                PERSISTENT RETRIEVAL
               </div>
-              <p className="text-2xs text-slate-400 leading-normal font-sans">
+              <p className="text-xs text-gray-400 leading-relaxed pr-16">
                 Retrieve prior project knowledge, architecture decisions, and technical context instantly.
               </p>
+            </div>
+             {/* Decorative graphic placeholder */}
+             <div className="absolute right-[-10px] bottom-[-10px] opacity-50 group-hover:opacity-80 transition-all">
+               <Magnet size={80} className="text-indigo-900/30" />
             </div>
           </div>
         </div>

@@ -11,7 +11,8 @@ import {
   Settings,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -79,23 +80,19 @@ export default function Sidebar() {
 
       {/* Sidebar Container */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 md:relative flex w-64 flex-col border-r border-slate-900 bg-slate-950 p-5 transform transition-transform duration-300 ease-in-out shrink-0
+        fixed inset-y-0 left-0 z-50 md:relative flex w-72 flex-col border-r border-white/5 bg-[#0d0d16] p-5 transform transition-transform duration-300 ease-in-out shrink-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
       `}>
         
         {/* Brand Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-400 text-white shadow-md shadow-violet-500/20">
-            <BrainCircuit size={20} className="animate-pulse" />
+        <div className="flex items-center gap-3 mb-8 px-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.4)]">
+            <BrainCircuit size={20} className="text-white" />
           </div>
           <div>
-            <span className="bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-sm font-bold tracking-wider text-transparent uppercase">
-              MemoryForge
-            </span>
-            <span className="block text-[9px] font-semibold uppercase tracking-widest text-slate-500 mt-0.5">
-              AI PLATFORM
-            </span>
+            <h1 className="font-bold text-lg tracking-wider text-white">MEMORYFORGE</h1>
+            <p className="text-[10px] text-gray-400 tracking-widest uppercase">AI Platform</p>
           </div>
         </div>
 
@@ -111,8 +108,8 @@ export default function Sidebar() {
                 className={({ isActive }) => `
                   flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 cursor-pointer
                   ${isActive 
-                    ? 'bg-gradient-to-r from-violet-600/25 to-indigo-600/20 text-indigo-200 border border-indigo-500/35 shadow-[0_0_15px_rgba(99,102,241,0.15)] font-semibold' 
-                    : 'text-slate-450 hover:bg-slate-900/40 hover:text-slate-200 border border-transparent'}
+                    ? 'bg-gradient-to-r from-purple-600/20 to-transparent border border-purple-500/30 rounded-xl text-purple-300 transition-all hover:bg-purple-600/30 font-semibold shadow-[0_0_15px_rgba(168,85,247,0.15)]' 
+                    : 'text-gray-400 hover:text-gray-200 transition-all border border-transparent'}
                 `}
               >
                 <Icon size={18} />
@@ -123,84 +120,69 @@ export default function Sidebar() {
         </nav>
 
         {/* Bottom Panel */}
-        <div className="border-t border-slate-900 pt-5 mt-5 space-y-4">
+        <div className="relative mt-10">
           {user ? (
-            <div className="space-y-3">
-              {/* Profile card */}
-              <div className="bg-slate-900/40 border border-slate-900 rounded-xl p-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white truncate">{user.name}</p>
-                  <p className="text-[10px] text-slate-500 truncate mt-0.5">{user.email}</p>
-                </div>
-                <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full shrink-0 tracking-wider ${
-                  user.role === 'ADMIN' ? 'bg-violet-500/10 text-violet-300 border border-violet-500/20' : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'
-                }`}>
-                  {user.role}
-                </span>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col items-center shadow-lg">
+              {/* Avatar Placeholder / Authenticated Profile Card */}
+              <div className="w-16 h-16 rounded-full bg-gradient-to-b from-indigo-600 to-purple-600 border-2 border-purple-500/50 -mt-12 mb-4 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                 <span className="text-xl font-extrabold text-white">{user.name ? user.name[0].toUpperCase() : 'U'}</span>
               </div>
               
-              {/* Action Buttons */}
-              <div className="space-y-1">
+              <div className="w-full text-center mb-3">
+                <p className="text-xs font-semibold text-white truncate">{user.name}</p>
+                <p className="text-[10px] text-gray-400 truncate mt-0.5">{user.email}</p>
+              </div>
+              
+              <p className="text-[10px] text-gray-400 mb-3 flex items-center gap-2 uppercase tracking-wider font-semibold">
+                Role: <span className="text-indigo-400">{user.role}</span>
+              </p>
+
+              <div className="w-full space-y-1.5">
                 <button
                   onClick={() => {
                     setIsOpen(false);
                     // placeholder settings
                   }}
-                  className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-500 hover:bg-slate-900/60 hover:text-slate-300 cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-medium text-slate-400 bg-white/[0.02] border border-white/5 hover:bg-white/5 cursor-pointer transition-all"
                 >
-                  <Settings size={16} />
-                  <span>Workspace Settings</span>
+                  <Settings size={14} />
+                  <span>Settings</span>
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-semibold text-rose-500 hover:bg-rose-500/10 active:scale-[0.98] transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-rose-500 bg-rose-500/5 border border-rose-500/10 hover:bg-rose-500/10 active:scale-[0.98] transition-all cursor-pointer"
                 >
-                  <LogOut size={16} />
+                  <LogOut size={14} />
                   <span>Sign Out</span>
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-4 py-4 px-2 border border-slate-800 bg-slate-900/10 rounded-2xl relative overflow-hidden backdrop-blur-md">
-              {/* Wireframe head SVG */}
-              <div className="relative flex items-center justify-center w-20 h-20 rounded-full border border-slate-800/80 bg-slate-950/80 shadow-[0_0_15px_rgba(99,102,241,0.15)] shrink-0">
-                <svg className="w-14 h-14 text-indigo-400/70 animate-pulse" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="50" cy="45" r="28" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.2" />
-                  <path d="M 50 15 L 50 75 M 22 45 L 78 45 M 30 25 L 70 65 M 30 65 L 70 25" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-                  <path d="M 30 35 Q 50 20 70 35 Q 75 60 50 80 Q 25 60 30 35 Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <path d="M 38 48 Q 50 51 62 48" stroke="currentColor" strokeWidth="1" />
-                  <path d="M 42 38 A 2 2 0 1 1 42 37.9 Z M 58 38 A 2 2 0 1 1 58 37.9 Z" fill="currentColor" />
-                  <path d="M 50 48 L 50 58 L 46 58" stroke="currentColor" strokeWidth="1" />
-                  <circle cx="50" cy="45" r="35" stroke="currentColor" strokeWidth="0.5" opacity="0.1" />
-                  <circle cx="50" cy="15" r="2.5" fill="currentColor" />
-                  <circle cx="50" cy="75" r="2.5" fill="currentColor" />
-                  <circle cx="22" cy="45" r="2.5" fill="currentColor" />
-                  <circle cx="78" cy="45" r="2.5" fill="currentColor" />
-                </svg>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col items-center shadow-lg">
+              {/* Avatar Placeholder */}
+              <div className="w-16 h-16 rounded-full bg-gradient-to-b from-gray-700 to-gray-900 border-2 border-purple-500/50 -mt-12 mb-4 flex items-center justify-center overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                 <div className="w-full h-full bg-gradient-to-tr from-purple-500/20 to-indigo-500/20 bg-cover opacity-60"></div>
               </div>
-
-              {/* Status Indicator */}
-              <div className="bg-slate-950/40 border border-slate-900 rounded-xl px-3 py-1.5 w-full text-center">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block select-none">
-                  Account Security Status: <span className="text-amber-500 font-extrabold animate-pulse">Locked</span>
-                </span>
+              
+              <div className="w-full h-8 bg-black/40 rounded-lg mb-4 border border-white/5 flex items-center justify-center">
+                 <span className="text-[10px] text-gray-500 font-mono tracking-widest">UNAUTHENTICATED</span>
               </div>
-
-              {/* Sign In Button */}
+              
+              <p className="text-xs text-gray-400 mb-4 flex items-center gap-2">
+                Account Security Status: <span className="text-gray-200">Locked</span>
+              </p>
+              
               <button
                 onClick={() => {
                   setIsOpen(false);
                   navigate('/auth');
                 }}
-                className="w-full flex flex-col items-center justify-center gap-0.5 bg-gradient-to-r from-indigo-950/80 to-purple-950/80 hover:from-indigo-900/90 hover:to-purple-900/90 border border-indigo-500/20 text-white py-2 px-4 rounded-xl shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                className="w-full py-2 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-purple-500/40 hover:bg-purple-600/40 rounded-lg flex items-center justify-center gap-2 text-sm transition-all shadow-[0_0_10px_rgba(168,85,247,0.2)] cursor-pointer"
               >
-                <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-indigo-300">
-                  🔑 Sign In
-                </span>
-                <span className="text-[8px] text-slate-500 uppercase tracking-widest font-semibold">
-                  Secure your memory forge
-                </span>
+                <Lock size={14} className="text-indigo-400" />
+                <span className="text-indigo-200 font-medium">Sign In</span>
               </button>
+              <p className="text-[10px] text-gray-500 mt-3">Secure your memory forge</p>
             </div>
           )}
         </div>

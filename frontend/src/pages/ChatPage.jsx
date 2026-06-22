@@ -29,7 +29,8 @@ import {
   X,
   Image,
   FolderArchive,
-  FileText
+  FileText,
+  Settings
 } from 'lucide-react';
 
 const ChatPage = () => {
@@ -324,20 +325,19 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
   ];
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-slate-950">
+    <div className="flex flex-1 flex-col overflow-hidden bg-[#09090e] text-white">
       {/* Main Grid Workspace */}
       <div className="relative z-10 flex flex-1 flex-col lg:grid lg:grid-cols-4 overflow-hidden">
         {/* Chat Area (3 columns on desktop) */}
-        <div className="flex flex-col lg:col-span-3 h-full border-r border-slate-900/80 overflow-hidden">
+        <div className="flex flex-col lg:col-span-3 h-full border-r border-white/5 overflow-hidden relative">
+          
           {/* Chat Header */}
-          <div className="flex h-14 items-center justify-between border-b border-slate-900/80 bg-slate-950/60 backdrop-blur-sm px-6 shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/10 ring-1 ring-brand-500/30">
-                <Cpu size={14} className="text-brand-400" />
+          <header className="flex h-14 items-center justify-between border-b border-white/5 bg-[#09090e]/80 backdrop-blur-sm px-6 shrink-0 z-10 sticky top-0">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                 <Settings size={16} />
               </div>
-              <span className="text-sm font-bold uppercase tracking-wider text-slate-200">
-                Agent Engineering Workspace
-              </span>
+              <span className="text-sm font-semibold tracking-widest text-gray-300">AGENT ENGINEERING WORKSPACE</span>
             </div>
             
             {/* Action Bar */}
@@ -345,10 +345,10 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
               <button
                 onClick={seedDemoWorkspace}
                 disabled={seeding || backendStatus === 'offline'}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 border ${
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${
                   seedSuccess
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]'
-                    : 'bg-brand-600/10 border-brand-500/30 text-brand-300 hover:bg-brand-600/20 hover:border-brand-500/50 hover:shadow-[0_0_16px_-4px_rgba(92,120,255,0.6)]'
+                    : 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 transition-all'
                 } disabled:opacity-50`}
               >
                 {seeding ? (
@@ -361,34 +361,36 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                 <span>{seedSuccess ? 'Workspace Loaded!' : 'Load Demo Workspace'}</span>
               </button>
 
-              <div className="flex items-center gap-1.5 border-l border-slate-800 pl-3">
+              <div className="flex items-center gap-2 border-l border-white/5 pl-3">
                 <span className={`relative inline-flex h-2 w-2 rounded-full ${
-                  backendStatus === 'online' ? 'bg-emerald-500' : 'bg-red-500'
+                  backendStatus === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse'
                 }`}>
                   {backendStatus === 'online' && (
                     <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 animate-ping opacity-75" />
                   )}
                 </span>
-                <span className="text-2xs font-semibold text-slate-500 uppercase tracking-widest hidden sm:inline">
+                <span className={`text-[10px] font-bold uppercase tracking-widest hidden sm:inline ${
+                  backendStatus === 'online' ? 'text-emerald-400' : 'text-red-400'
+                }`}>
                   {backendStatus === 'online' ? 'Backend Live' : 'Backend Offline'}
                 </span>
               </div>
             </div>
-          </div>
+          </header>
 
           {/* Messages view */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden flex flex-col pb-36">
             <ChatWindow messages={messages} loading={loading} />
           </div>
 
-          {/* Form Input Footer */}
-          <div className="border-t border-slate-900/80 bg-slate-950/60 backdrop-blur-sm p-4 shrink-0">
-            <form onSubmit={handleFormSubmit} className="mx-auto max-w-4xl">
-              <div className="relative flex flex-col rounded-3xl bg-[#1a1a1f] border border-slate-800/60 focus-within:border-brand-500/50 focus-within:shadow-[0_0_0_3px_rgba(92,120,255,0.08)] p-3 transition-all duration-200">
+          {/* Bottom Input Area */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#09090e] via-[#09090e] to-transparent z-20">
+            <form onSubmit={handleFormSubmit} className="max-w-4xl mx-auto flex flex-col items-center">
+              <div className="w-full bg-[#13131f] border border-white/10 rounded-xl p-2.5 flex flex-col gap-2 transition-all">
                 
                  {/* Staged File Thumbnail Row (visible if a file is staged) */}
                  {stagedFile && (
-                   <div className="flex flex-col gap-2 px-2 mb-3">
+                   <div className="flex flex-col gap-2 px-2 mb-2">
                      <div className="flex items-center gap-3">
                        {/* Thumbnail/Icon */}
                        <div className="relative w-12 h-12 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col items-center justify-center overflow-hidden shrink-0">
@@ -443,7 +445,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
  
                        {stagedFile.status === 'error' && (
                          <div className="flex flex-col justify-center">
-                           <span className="text-xs text-rose-400 font-semibold">
+                           <span className="text-xs text-rose-450 font-semibold">
                              Upload Failed
                            </span>
                            <span className="text-2xs text-rose-500 mt-0.5 max-w-md truncate">
@@ -458,7 +460,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                          </div>
                        )}
                      </div>
-
+ 
                      {/* Collapsible Image Analysis Panel */}
                      {stagedFile.status === 'ready' && stagedFile.type?.startsWith('image/') && (
                        <div className="mt-2 border-t border-slate-800/60 pt-2 w-full text-left">
@@ -482,7 +484,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                                  </div>
                                </div>
                              ) : null}
-
+ 
                              {/* Summary */}
                              <div className="space-y-1">
                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Summary</span>
@@ -490,7 +492,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                                  {stagedFile.summary}
                                </p>
                              </div>
-
+ 
                              {/* Detected Technologies */}
                              {stagedFile.technologies && stagedFile.technologies.length > 0 ? (
                                <div className="space-y-1.5">
@@ -504,7 +506,7 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                                  </div>
                                </div>
                              ) : null}
-
+ 
                              {/* Generated Memories */}
                              {stagedFile.memories && stagedFile.memories.length > 0 ? (
                                <div className="space-y-1.5">
@@ -527,83 +529,66 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                      )}
                    </div>
                  )}
-
-                {/* Input Controls Row */}
-                <div className="flex items-center">
-                  {/* File Upload Trigger */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={loading || uploadingFile || backendStatus === 'offline'}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer shrink-0 mr-1"
-                    title="Upload and ingest files/code/projects"
-                  >
-                    <Plus size={18} />
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUploadChange}
-                    style={{ display: 'none' }}
-                    multiple
-                    webkitdirectory=""
-                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
-                  />
-
-
-                  {/* Main Prompt Input */}
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    disabled={loading || uploadingFile || backendStatus === 'offline'}
-                    placeholder={
-                      backendStatus === 'offline'
-                        ? 'Reconnect to backend to send prompts...'
-                        : 'Ask the agent to inspect, edit, debug, or improve your project'
-                    }
-                    className="flex-1 bg-transparent px-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none disabled:opacity-50"
-                  />
-                  
-                  {/* Voice & Submit Actions */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => alert("Voice transcription feature is coming soon!")}
-                      disabled={loading || uploadingFile || backendStatus === 'offline'}
-                      className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all cursor-pointer"
-                    >
-                      <Mic size={18} />
-                    </button>
-
-                    {(input.trim() || stagedFile) ? (
-                      <button
-                        type="submit"
-                        disabled={loading || uploadingFile || backendStatus === 'offline'}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-white hover:bg-brand-400 transition-all cursor-pointer shrink-0 shadow-[0_0_16px_-2px_rgba(92,120,255,0.7)] active:scale-95 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none"
-                      >
-                        <ArrowUp size={18} />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => alert("Voice mode features are coming soon!")}
-                        disabled={loading || uploadingFile || backendStatus === 'offline'}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-slate-200 transition-all cursor-pointer shrink-0 active:scale-95"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="8" y1="5" x2="8" y2="19"></line>
-                          <line x1="12" y1="9" x2="12" y2="15"></line>
-                          <line x1="16" y1="7" x2="16" y2="17"></line>
-                          <line x1="20" y1="10" x2="20" y2="14"></line>
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
+ 
+                 {/* Input Controls Row */}
+                 <div className="flex items-center gap-3">
+                   {/* File Upload Trigger */}
+                   <button
+                     type="button"
+                     onClick={() => fileInputRef.current?.click()}
+                     disabled={loading || uploadingFile || backendStatus === 'offline'}
+                     className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer shrink-0"
+                     title="Upload and ingest files/code/projects"
+                   >
+                     <Plus size={18} />
+                   </button>
+                   <input
+                     type="file"
+                     ref={fileInputRef}
+                     onChange={handleFileUploadChange}
+                     style={{ display: 'none' }}
+                     multiple
+                     webkitdirectory=""
+                     accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
+                   />
+ 
+                   {/* Main Prompt Input */}
+                   <input
+                     type="text"
+                     value={input}
+                     onChange={(e) => setInput(e.target.value)}
+                     disabled={loading || uploadingFile || backendStatus === 'offline'}
+                     placeholder={
+                       backendStatus === 'offline'
+                         ? 'Reconnect to backend to send prompts...'
+                         : 'Ask the agent to inspect, edit, debug, or improve your project'
+                     }
+                     className="flex-1 bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 focus:outline-none disabled:opacity-50"
+                   />
+                   
+                   {/* Voice & Submit Actions */}
+                   <div className="flex items-center gap-1 shrink-0">
+                     <button
+                       type="button"
+                       onClick={() => alert("Voice transcription feature is coming soon!")}
+                       disabled={loading || uploadingFile || backendStatus === 'offline'}
+                       className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                     >
+                       <Mic size={18} />
+                     </button>
+ 
+                     <button
+                       type="submit"
+                       disabled={loading || uploadingFile || backendStatus === 'offline' || (!input.trim() && !stagedFile)}
+                       className="p-2 text-purple-400 bg-purple-500/10 rounded-lg hover:bg-purple-500/20 hover:text-purple-300 transition-colors disabled:opacity-30 disabled:hover:bg-purple-500/10 cursor-pointer"
+                     >
+                       <ArrowUp size={18} />
+                     </button>
+                   </div>
+                 </div>
+ 
               </div>
-              <div className="text-center text-[10px] text-slate-500 mt-2 font-sans selection:bg-transparent">
+              <div className="text-center text-[10px] text-gray-500 mt-3 font-sans selection:bg-transparent">
                 MemoryForge can make mistakes. Verify critical logic and code structures.
               </div>
             </form>
@@ -611,34 +596,39 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
         </div>
 
         {/* Sidebar Controls & Memory Panel (1 column on desktop) */}
-        <div className="lg:col-span-1 h-full bg-slate-950/60 p-4 overflow-y-auto border-t lg:border-t-0 border-slate-900/80 space-y-5 flex flex-col">
+        <aside className="w-85 flex flex-col border-l border-white/5 bg-[#09090e] p-4 gap-4 overflow-y-auto shrink-0 h-full">
           
           {/* 1. Live Memory Influence Panel */}
-          <div className="flex-1 min-h-0 flex flex-col">
-            <MemoryPanel memories={latestMemories} />
-          </div>
-
-          {/* 2. Success Metrics Box */}
-          <div className="rounded-2xl border border-brand-500/20 bg-gradient-to-b from-brand-500/[0.07] to-slate-900/40 p-4 shadow-[0_0_24px_-8px_rgba(92,120,255,0.35)]">
-            <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800/60 mb-3">
-              <Database size={14} className="text-brand-400" />
-              <span className="text-xs font-bold tracking-wider text-slate-300 uppercase">
-                Demo Success Metrics
-              </span>
+          {latestMemories.length === 0 ? (
+            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-8 flex flex-col items-center justify-center text-center min-h-[160px] select-none">
+              <Database size={24} className="text-gray-600 mb-3" />
+              <p className="text-xs text-gray-500">No memory context retrieved for this prompt.</p>
             </div>
-            
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/80">
-                <div className="text-3xs font-semibold text-slate-500 uppercase tracking-wide">Stored</div>
-                <div className="text-xl font-bold text-white mt-1 font-mono tabular-nums">{storedCount}</div>
+          ) : (
+            <div className="flex-1 min-h-0 flex flex-col">
+              <MemoryPanel memories={latestMemories} />
+            </div>
+          )}
+
+          {/* 2. Success Metrics */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 shrink-0">
+            <h3 className="text-xs font-semibold flex items-center gap-2 mb-4 text-gray-300">
+              <Database size={14} className="text-indigo-400" /> DEMO SUCCESS METRICS
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {/* Metric Box */}
+              <div className="bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                <span className="text-[10px] text-gray-500 mb-1 select-none">STORED</span>
+                <span className="text-lg font-bold text-white font-mono">{storedCount}</span>
               </div>
-              <div className="bg-slate-950/50 p-2.5 rounded-xl border border-brand-500/20">
-                <div className="text-3xs font-semibold text-slate-500 uppercase tracking-wide">Recalls</div>
-                <div className="text-xl font-bold text-brand-300 mt-1 font-mono tabular-nums">{retrievedCount}</div>
+              <div className="bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                <span className="text-[10px] text-gray-500 mb-1 select-none">RECALLS</span>
+                <span className="text-lg font-bold text-indigo-400 font-mono">{retrievedCount}</span>
               </div>
-              <div className="bg-slate-950/40 p-2 rounded-lg border border-slate-900 flex flex-col justify-between items-center overflow-hidden">
-                <div className="text-[8px] font-extrabold text-slate-500 uppercase tracking-wider">Success %</div>
-                <div className="relative w-12 h-8 mt-1.5 flex items-center justify-center">
+              <div className="bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col items-center justify-between">
+                <span className="text-[10px] text-gray-500 mb-1 select-none">SUCCESS %</span>
+                {/* Gauge */}
+                <div className="relative w-12 h-6 mt-1 flex items-center justify-center">
                   <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 50">
                     <path d="M 15 45 A 35 35 0 0 1 85 45" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
                     <path d="M 15 45 A 35 35 0 0 1 85 45" fill="none" stroke="url(#success-gauge-gradient)" strokeWidth="12" strokeLinecap="round" 
@@ -652,36 +642,32 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
                       </linearGradient>
                     </defs>
                   </svg>
-                  <div className="text-[10px] font-bold text-indigo-300 mt-2.5 font-mono z-10">{retrievedCount > 0 ? '100%' : '0%'}</div>
+                  <div className="text-[9px] font-bold text-indigo-300 mt-2 font-mono z-10">{retrievedCount > 0 ? '100%' : '0%'}</div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 3. Demo Scenario Pills */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
-            <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800/60 mb-3">
-              <Play size={14} className="text-emerald-400" />
-              <span className="text-xs font-bold tracking-wider text-slate-300 uppercase">
-                Demo Scenario Prompts
-              </span>
-            </div>
-            
-            <div className="space-y-2">
+          {/* 3. Scenario Prompts */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 flex-1 flex flex-col min-h-0">
+            <h3 className="text-xs font-semibold flex items-center gap-2 mb-4 text-gray-300">
+              <Play size={14} className="text-emerald-400" /> DEMO SCENARIO PROMPTS
+            </h3>
+            <div className="space-y-2 overflow-y-auto flex-1 pr-1 font-mono">
               {demoScenarios.map((scenario, index) => (
                 <button
                   key={index}
                   onClick={() => handleSend(scenario)}
                   disabled={loading || backendStatus === 'offline'}
-                  className="group w-full flex items-center justify-between gap-1 text-left rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-brand-500/30 px-3 py-2.5 text-xs font-medium text-slate-300 hover:text-white transition-all duration-150 disabled:opacity-50"
+                  className="w-full flex items-center justify-between p-3 rounded-lg border border-white/5 bg-black/20 hover:bg-white/5 hover:border-white/10 transition-all text-[11px] text-gray-400 text-left disabled:opacity-50 cursor-pointer"
                 >
-                  <span className="truncate font-mono">{scenario}</span>
-                  <ChevronRightIcon className="text-slate-600 group-hover:text-brand-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  <span className="truncate pr-2">{scenario}</span>
+                  <span className="text-gray-600">&gt;</span>
                 </button>
               ))}
             </div>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
   );

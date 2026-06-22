@@ -40,7 +40,7 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <Router>
-      <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 antialiased overflow-hidden selection:bg-indigo-500/20">
+      <div className="flex flex-col h-screen w-screen bg-[#09090e] text-slate-100 antialiased overflow-hidden selection:bg-indigo-500/20">
         <div className="flex flex-1 overflow-hidden">
           {/* Modern Sidebar Navigation */}
           <Sidebar />
