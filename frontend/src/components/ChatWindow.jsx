@@ -1,88 +1,81 @@
 import React, { useEffect, useRef } from 'react';
 import MessageBubble from './MessageBubble';
-import { Cpu, Database, Zap, Sparkles, Brain, Magnet, BrainCircuit, RefreshCcw } from 'lucide-react';
+import { BrainCircuit, Cpu, Database, Flower2, Magnet, Rocket, Zap } from 'lucide-react';
 import heroImage from '../assets/hero.png';
+
+const featurePills = [
+  { label: 'Persistent Memory', icon: Flower2, tone: 'text-pink-300' },
+  { label: 'Context Retrieval', icon: Zap, tone: 'text-cyan-300' },
+  { label: 'Agent Engineering', icon: Rocket, tone: 'text-teal-200' },
+];
 
 const ChatWindow = ({ messages = [], loading = false }) => {
   const bottomRef = useRef(null);
 
-  // Automatically scroll to the bottom of the conversation when new items arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center pt-10 px-8 pb-32 text-center select-none overflow-y-auto w-full">
-        {/* Central 3D Graphic Placeholder */}
-        <div className="w-full max-w-2xl h-64 mb-6 relative flex items-center justify-center shrink-0">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#09090e] to-[#09090e] z-0"></div>
-          <img 
-            src={heroImage} 
-            alt="MemoryForge Illustration" 
-            className="w-48 h-48 object-contain animate-float z-10"
-          />
-        </div>
-        
-        {/* Glowing Headings */}
-        <h1 className="text-5xl font-extrabold text-center mb-4 leading-tight text-white tracking-tight">
-          Build AI Systems <br/>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-cyan-300 to-teal-200 filter drop-shadow-[0_0_15px_rgba(99,102,241,0.25)]">
-            With Persistent Memory
-          </span>
-        </h1>
-        
-        {/* Description Subtitle */}
-        <p className="text-center text-gray-400 max-w-2xl mb-8 text-sm leading-relaxed">
-          MemoryForge empowers AI engineers with long-term memory, architecture retention,
-          contextual reasoning, and intelligent retrieval across projects and conversations.
-        </p>
-
-        {/* Feature Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
-          {['Persistent Memory', 'Context Retrieval', 'Agent Engineering'].map((tag, i) => (
-            <span key={i} className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300 flex items-center gap-2">
-              {i === 0 && <span className="w-2 h-2 rounded-full bg-pink-500"></span>}
-              {i === 1 && <Zap size={12} className="text-orange-400"/>}
-              {i === 2 && <RefreshCcw size={12} className="text-purple-400"/>}
-              {tag}
-            </span>
-          ))}
-        </div>
-
-        {/* Feature Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl text-left">
-          {/* Card 1 */}
-          <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden group hover:border-white/20 transition-all flex flex-col justify-between min-h-[140px]">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-semibold mb-3 text-white">
-                <BrainCircuit size={16} className="text-purple-400" />
-                SEED PREFERENCES
-              </div>
-              <p className="text-xs text-gray-400 leading-relaxed pr-16">
-                Store architecture decisions and coding standards that your AI assistant can remember and apply later.
-              </p>
-            </div>
-            {/* Decorative graphic placeholder */}
-            <div className="absolute right-[-20px] bottom-[-20px] opacity-50 group-hover:opacity-80 transition-all">
-               <BrainCircuit size={80} className="text-purple-900/30" />
-            </div>
+      <div className="mf-hero-stage flex-1 overflow-y-auto px-10 pb-40 pt-8 text-center select-none">
+        <div className="mx-auto flex max-w-6xl flex-col items-center">
+          <div className="relative flex h-[245px] w-full items-center justify-center overflow-visible">
+            <div className="mf-network-field" />
+            <div className="mf-orbit mf-orbit-a" />
+            <div className="mf-orbit mf-orbit-b" />
+            <img src={heroImage} alt="MemoryForge system cube" className="relative z-10 h-[215px] w-[270px] object-contain drop-shadow-[0_0_42px_rgba(116,153,255,0.55)]" />
           </div>
 
-          {/* Card 2 */}
-          <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden group hover:border-white/20 transition-all flex flex-col justify-between min-h-[140px]">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-semibold mb-3 text-white">
-                <Database size={16} className="text-teal-400" />
-                PERSISTENT RETRIEVAL
+          <h1 className="mt-1 text-[64px] font-black leading-[1.03] tracking-normal text-white drop-shadow-[0_6px_22px_rgba(0,0,0,0.65)] max-xl:text-5xl max-md:text-4xl">
+            Build AI Systems
+            <span className="mt-5 block bg-gradient-to-r from-[#a4adff] via-[#c7b3ff] to-[#80edf0] bg-clip-text text-transparent">
+              With Persistent Memory
+            </span>
+          </h1>
+
+          <p className="mt-9 max-w-[860px] text-[21px] font-medium leading-[1.6] text-slate-400 max-md:text-base">
+            MemoryForge empowers AI engineers with long-term memory, architecture retention,
+            contextual reasoning, and intelligent retrieval across projects and conversations.
+          </p>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-5">
+            {featurePills.map((pill) => {
+              const Icon = pill.icon;
+              return (
+                <span key={pill.label} className="mf-pill">
+                  <Icon size={17} className={pill.tone} />
+                  {pill.label}
+                </span>
+              );
+            })}
+          </div>
+
+          <div className="mt-14 grid w-full grid-cols-2 gap-7 text-left max-lg:grid-cols-1">
+            <div className="mf-feature-card">
+              <div className="relative z-10 max-w-[70%]">
+                <div className="mb-5 flex items-center gap-3 text-[17px] font-black uppercase tracking-wide text-white">
+                  <BrainCircuit size={23} className="text-violet-300" />
+                  Seed Preferences
+                </div>
+                <p className="text-[17px] leading-relaxed text-slate-400">
+                  Store architecture decisions and coding standards that your AI assistant can remember and apply later.
+                </p>
               </div>
-              <p className="text-xs text-gray-400 leading-relaxed pr-16">
-                Retrieve prior project knowledge, architecture decisions, and technical context instantly.
-              </p>
+              <BrainCircuit className="absolute bottom-5 right-9 text-violet-300/35" size={95} strokeWidth={1.1} />
             </div>
-             {/* Decorative graphic placeholder */}
-             <div className="absolute right-[-10px] bottom-[-10px] opacity-50 group-hover:opacity-80 transition-all">
-               <Magnet size={80} className="text-indigo-900/30" />
+
+            <div className="mf-feature-card">
+              <div className="relative z-10 max-w-[72%]">
+                <div className="mb-5 flex items-center gap-3 text-[17px] font-black uppercase tracking-wide text-white">
+                  <Database size={23} className="text-teal-300" />
+                  Persistent Retrieval
+                </div>
+                <p className="text-[17px] leading-relaxed text-slate-400">
+                  Retrieve prior project knowledge, architecture decisions, and technical context instantly.
+                </p>
+              </div>
+              <Magnet className="absolute bottom-4 right-10 rotate-[-14deg] text-cyan-200/45" size={100} strokeWidth={1.2} />
             </div>
           </div>
         </div>
@@ -91,29 +84,26 @@ const ChatWindow = ({ messages = [], loading = false }) => {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
+    <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
       {messages.map((msg, index) => (
         <MessageBubble key={index} role={msg.role} content={msg.content} />
       ))}
 
       {loading && (
-        <div className="flex w-full gap-3 py-4 justify-start border-b border-slate-900/30">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-brand-400 text-white animate-pulse">
-            <Cpu size={16} />
+        <div className="flex w-full gap-3 py-4 justify-start border-b border-white/5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/20 text-violet-200 ring-1 ring-violet-300/25 animate-pulse">
+            <Cpu size={17} />
           </div>
-          <div className="max-w-[85%] rounded-2xl p-4 bg-slate-900/50 text-slate-400 border border-slate-800/60 rounded-bl-none">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-2xs font-bold tracking-wider uppercase opacity-60">MemoryForge AI</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm font-sans italic text-slate-400">
-              <span className="inline-block h-2 w-2 rounded-full bg-brand-500 animate-ping" />
+          <div className="max-w-[85%] rounded-2xl rounded-bl-none border border-white/10 bg-white/[0.05] p-4 text-slate-300 shadow-[0_0_30px_rgba(111,93,255,0.14)]">
+            <div className="mb-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">MemoryForge AI</div>
+            <div className="flex items-center gap-2 text-sm italic text-slate-400">
+              <span className="inline-block h-2 w-2 rounded-full bg-cyan-300 animate-ping" />
               <span>Thinking... retrieving memory context...</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Anchor for Auto Scroll */}
       <div ref={bottomRef} />
     </div>
   );

@@ -7,28 +7,26 @@ import AdminDashboard from './pages/AdminDashboard';
 import AuthPage from './pages/AuthPage';
 import AutonomousWorkspace from './pages/AutonomousWorkspace';
 
-// Protected Route wrapper to secure Admin control panels
 function ProtectedAdminRoute({ children }) {
   const token = localStorage.getItem('token');
   const userStr = localStorage.getItem('user');
-  
+
   if (!token || !userStr) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   try {
     const user = JSON.parse(userStr);
     if (user.role !== 'ADMIN') {
-      return <Navigate to="/chat" replace />;
+      return <Navigate to="/" replace />;
     }
   } catch (err) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   return children;
 }
 
-// Protected Route wrapper for general authenticated users
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -40,52 +38,38 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <Router>
-      <div className="flex flex-col h-screen w-screen bg-[#09090e] text-slate-100 antialiased overflow-hidden selection:bg-indigo-500/20">
-        <div className="flex flex-1 overflow-hidden">
-          {/* Modern Sidebar Navigation */}
+      <div className="h-screen w-screen overflow-hidden bg-[#030611] text-slate-100 antialiased selection:bg-violet-500/25">
+        <div className="flex h-full w-full overflow-hidden">
           <Sidebar />
-
-          {/* Page Render Workspace */}
-          <main className="flex-1 flex flex-col overflow-hidden relative">
+          <main className="min-w-0 flex-1 overflow-hidden">
             <Routes>
-              <Route 
-                path="/" 
-                element={
-                  <ProtectedRoute>
-                    <ChatPage />
-                  </ProtectedRoute>
-                } 
-              />
+              <Route path="/" element={<ChatPage />} />
               <Route path="/chat" element={<Navigate to="/" replace />} />
-              <Route 
-                path="/memories" 
+              <Route
+                path="/memories"
                 element={
                   <ProtectedRoute>
                     <MemoryDashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route path="/auth" element={<AuthPage />} />
-              <Route 
-                path="/agent" 
+              <Route
+                path="/agent"
                 element={
                   <ProtectedRoute>
                     <AutonomousWorkspace />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
-              {/* Secured Admin Room */}
-              <Route 
-                path="/admin" 
+              <Route
+                path="/admin"
                 element={
                   <ProtectedAdminRoute>
                     <AdminDashboard />
                   </ProtectedAdminRoute>
-                } 
+                }
               />
-              
-              {/* Catch-all fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
@@ -96,4 +80,3 @@ function App() {
 }
 
 export default App;
-

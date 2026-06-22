@@ -1,37 +1,51 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ChatWindow from '../components/ChatWindow';
 import MemoryPanel from '../components/MemoryPanel';
-import NetworkAnimation from '../components/NetworkAnimation';
-import { 
-  sendChatMessage, 
-  getHealth, 
-  createMemory, 
-  getMemories, 
-  getChatHistory, 
+import {
   API_BASE_URL,
+  createMemory,
+  getChatHistory,
+  getHealth,
+  getMemories,
+  sendChatMessage,
   uploadFileDoc,
   uploadFileImage,
-  uploadFileProject
+  uploadFileProject,
 } from '../services/api';
-import { 
-  Send, 
-  AlertCircle, 
-  RefreshCw, 
-  Cpu, 
-  Database, 
-  Play, 
-  Sparkles, 
-  Check, 
-  Info,
-  Plus,
-  Mic,
-  ArrowUp,
-  X,
-  Image,
-  FolderArchive,
+import {
+  ArrowRight,
+  Check,
+  ChevronRight,
+  CircleGauge,
+  Cuboid,
+  Database,
   FileText,
-  Settings
+  FolderArchive,
+  Image,
+  Mic,
+  Package,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Settings,
+  Sparkles,
+  X,
 } from 'lucide-react';
+
+const demoScenarios = [
+  'What database are we using?',
+  'Create signup API',
+  'Create login API',
+  'What authentication method are we using?',
+];
+
+const demoMemories = [
+  { type: 'architecture', content: 'Use MongoDB Atlas' },
+  { type: 'coding_standard', content: 'Use JWT Authentication' },
+  { type: 'team_preference', content: 'Use Tailwind CSS' },
+  { type: 'architecture', content: 'Use Express.js' },
+];
 
 const ChatPage = () => {
   const [messages, setMessages] = useState([]);
@@ -40,118 +54,29 @@ const ChatPage = () => {
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
-  const [backendStatus, setBackendStatus] = useState('checking'); // checking, online, offline
-  const [showHero, setShowHero] = useState(true);
-  
-  // Success Metrics State
+  const [backendStatus, setBackendStatus] = useState('checking');
   const [storedCount, setStoredCount] = useState(0);
   const [retrievedCount, setRetrievedCount] = useState(0);
-
-  // File Upload Reference & Handler
-  const fileInputRef = useRef(null);
   const [stagedFile, setStagedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const handleFileUploadChange = async (e) => {
-    if (!e.target.files || !e.target.files[0]) return;
-
-    const selectedFiles = Array.from(e.target.files);
-    const isDirectoryUpload = e.target.webkitdirectory || selectedFiles.length > 1;
-    const primaryFile = selectedFiles[0];
-    const stagedName = isDirectoryUpload
-      ? `${selectedFiles.length} selected files`
-      : primaryFile.name;
-
-    // Stage file in state as uploading
-    setStagedFile({
-      name: stagedName,
-      size: selectedFiles.reduce((total, file) => total + file.size, 0),
-      type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
-      status: 'uploading'
-    });
-    setUploadingFile(true);
-
-    try {
-      let response;
-      if (isDirectoryUpload) {
-        response = await uploadFileProject(selectedFiles);
-      } else {
-        const ext = primaryFile.name.split('.').pop().toLowerCase();
-        if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
-          response = await uploadFileImage(primaryFile);
-        } else if (ext === 'zip') {
-          response = await uploadFileProject(primaryFile);
-        } else {
-          response = await uploadFileDoc(primaryFile);
-        }
-      }
-
-      // Staged successfully
-      const responseData = response || {};
-      const analysisObj = responseData.analysis || responseData || {};
-      setStagedFile({
-        name: stagedName,
-        size: responseData.size || selectedFiles.reduce((total, file) => total + file.size, 0),
-        type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
-        status: 'ready',
-        fileId: responseData.file_id,
-        analysis: analysisObj || {},
-        summary: responseData.summary || analysisObj.summary || 'No summary available.',
-        ocrStatus: responseData.status || 'success',
-        extractedText: responseData.extracted_text || '',
-        technologies: Array.isArray(responseData.technologies) 
-          ? responseData.technologies 
-          : Array.isArray(responseData.technologies_detected) 
-          ? responseData.technologies_detected 
-          : Array.isArray(analysisObj.technologies) 
-          ? analysisObj.technologies 
-          : [],
-        memories: Array.isArray(responseData.memories) 
-          ? responseData.memories 
-          : Array.isArray(responseData.memories_created) 
-          ? responseData.memories_created 
-          : Array.isArray(analysisObj.memories) 
-          ? analysisObj.memories 
-          : []
-      });
-
-      // Refresh total count metrics
-      const mems = await getMemories();
-      setStoredCount(mems.count || 0);
-    } catch (error) {
-      console.error('Staging file upload failed:', error);
-      const errMsg = error.response?.data?.message || error.response?.data?.detail || error.message || 'Ingestion failed.';
-      setStagedFile({
-        name: stagedName,
-        size: selectedFiles.reduce((total, file) => total + file.size, 0),
-        type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
-        status: 'error',
-        error: errMsg
-      });
-    } finally {
-      setUploadingFile(false);
-      e.target.value = null;
-    }
-  };
-
-  // Check health, count stored memories, and fetch chat history from DB
   const loadInitialData = async () => {
     try {
       setBackendStatus('checking');
       await getHealth();
       setBackendStatus('online');
-      
+
       const mems = await getMemories();
       setStoredCount(mems.count || 0);
 
-      // Load chat logs from MongoDB Atlas
       try {
         const history = await getChatHistory();
-        if (history && history.length > 0) {
+        if (history?.length) {
           const formattedHistory = [];
-          history.forEach(h => {
-            formattedHistory.push({ role: 'user', content: h.message });
-            formattedHistory.push({ role: 'assistant', content: h.reply });
+          history.forEach((item) => {
+            formattedHistory.push({ role: 'user', content: item.message });
+            formattedHistory.push({ role: 'assistant', content: item.reply });
           });
           setMessages(formattedHistory);
         }
@@ -167,34 +92,76 @@ const ChatPage = () => {
     loadInitialData();
   }, []);
 
+  const handleFileUploadChange = async (e) => {
+    if (!e.target.files?.[0]) return;
+
+    const selectedFiles = Array.from(e.target.files);
+    const primaryFile = selectedFiles[0];
+    const isDirectoryUpload = e.target.webkitdirectory || selectedFiles.length > 1;
+    const stagedName = isDirectoryUpload ? `${selectedFiles.length} selected files` : primaryFile.name;
+    const totalSize = selectedFiles.reduce((total, file) => total + file.size, 0);
+
+    setStagedFile({ name: stagedName, size: totalSize, type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type, status: 'uploading' });
+    setUploadingFile(true);
+
+    try {
+      const ext = primaryFile.name.split('.').pop().toLowerCase();
+      let response;
+
+      if (isDirectoryUpload) {
+        response = await uploadFileProject(selectedFiles);
+      } else if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+        response = await uploadFileImage(primaryFile);
+      } else if (ext === 'zip') {
+        response = await uploadFileProject(primaryFile);
+      } else {
+        response = await uploadFileDoc(primaryFile);
+      }
+
+      const analysis = response?.analysis || response || {};
+      setStagedFile({
+        name: stagedName,
+        size: response?.size || totalSize,
+        type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type,
+        status: 'ready',
+        fileId: response?.file_id,
+        analysis,
+        summary: response?.summary || analysis.summary || 'No summary available.',
+        technologies: response?.technologies || response?.technologies_detected || analysis.technologies || [],
+        memories: response?.memories || response?.memories_created || analysis.memories || [],
+      });
+
+      const mems = await getMemories();
+      setStoredCount(mems.count || 0);
+    } catch (error) {
+      console.error('Staging file upload failed:', error);
+      setStagedFile({
+        name: stagedName,
+        size: totalSize,
+        type: primaryFile.type,
+        status: 'error',
+        error: error.response?.data?.message || error.response?.data?.detail || error.message || 'Ingestion failed.',
+      });
+    } finally {
+      setUploadingFile(false);
+      e.target.value = null;
+    }
+  };
 
   const handleSend = async (messageText, displayText) => {
     if (!messageText.trim() || loading) return;
 
-    const displayMsg = displayText || messageText;
-
-    // Hide hero when first message is sent
-    setShowHero(false);
-
-    // Stage user message
-    setMessages((prev) => [...prev, { role: 'user', content: displayMsg }]);
+    setMessages((prev) => [...prev, { role: 'user', content: displayText || messageText }]);
     setLoading(true);
 
     try {
       const data = await sendChatMessage(messageText);
-      
-      // Stage AI reply and memories utilized
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
-      
       const context = data.memory_context || [];
+
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
       setLatestMemories(context);
-      
-      // Update retrieval metrics
-      if (context.length > 0) {
-        setRetrievedCount((prev) => prev + context.length);
-      }
-      
-      // Refresh total stored count (in case new interaction memory was saved)
+      if (context.length > 0) setRetrievedCount((prev) => prev + context.length);
+
       const mems = await getMemories();
       setStoredCount(mems.count || 0);
       setBackendStatus('online');
@@ -203,10 +170,7 @@ const ChatPage = () => {
       setBackendStatus('offline');
       setMessages((prev) => [
         ...prev,
-        {
-          role: 'assistant',
-          content: '⚠️ Failed to connect to the backend server. Please check that uvicorn is running on port 8000 and try again.',
-        },
+        { role: 'assistant', content: `Failed to connect to the backend server. Please check that the API is running on ${API_BASE_URL} and try again.` },
       ]);
     } finally {
       setLoading(false);
@@ -216,65 +180,20 @@ const ChatPage = () => {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (!input.trim() && !stagedFile) return;
+    if (stagedFile && stagedFile.status !== 'ready') return;
 
     let queryToSend = input;
     let displayMessageText = input;
 
     if (stagedFile) {
-      if (stagedFile.status !== 'ready') {
-        alert("Please wait for the file to finish uploading before sending.");
-        return;
-      }
-      
       const analysis = stagedFile.analysis || {};
-      const summary = stagedFile.summary || "No summary provided.";
-      
-      const technologies = Array.isArray(analysis.technologies) 
-        ? analysis.technologies.filter(Boolean).join(', ') 
-        : "None identified";
-        
-      const dependencies = Array.isArray(analysis.dependencies)
-        ? analysis.dependencies
-            .filter(Boolean)
-            .map(d => (d && typeof d === 'object') ? `${d.name || 'unknown'} (${d.version || 'any'})` : String(d))
-            .join(', ')
-        : "None identified";
-        
-      const architecture = analysis.architecture || "Standard";
-      
-      const decisions = Array.isArray(analysis.decisions)
-        ? analysis.decisions
-            .filter(Boolean)
-            .map((d, i) => `\n${i+1}. ${d}`)
-            .join('')
-        : "None cataloged";
-        
-      const security = Array.isArray(analysis.security_findings)
-        ? analysis.security_findings
-            .filter(Boolean)
-            .map(s => `\n⚠️ ${s}`)
-            .join('')
-        : "✅ No threats detected";
-        
-      const memories = Array.isArray(analysis.memories)
-        ? analysis.memories
-            .filter(m => m && m.content)
-            .map(m => `\n🧠 *[${m.type || 'architecture'}]* ${m.content}`)
-            .join('')
-        : "None generated";
+      const technologies = Array.isArray(stagedFile.technologies) ? stagedFile.technologies.filter(Boolean).join(', ') : 'None identified';
+      const memories = Array.isArray(stagedFile.memories)
+        ? stagedFile.memories.filter((memory) => memory?.content).map((memory) => `[${memory.type || 'memory'}] ${memory.content}`).join('\n')
+        : 'None generated';
 
-      queryToSend = `[Context from file: ${stagedFile.name}
-Summary: ${summary}
-Technologies: ${technologies}
-Dependencies: ${dependencies}
-Architecture: ${architecture}
-Decisions: ${decisions}
-Security findings: ${security}
-Memories generated: ${memories}]
-
-User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
-
-      displayMessageText = `📁 Attached: **${stagedFile.name}**\n\n${input.trim() || 'Please analyze this ingested asset.'}`;
+      queryToSend = `[Context from file: ${stagedFile.name}\nSummary: ${stagedFile.summary}\nTechnologies: ${technologies}\nArchitecture: ${analysis.architecture || 'Standard'}\nMemories generated: ${memories}]\n\nUser Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
+      displayMessageText = `Attached: ${stagedFile.name}\n\n${input.trim() || 'Please analyze this ingested asset.'}`;
     }
 
     setInput('');
@@ -282,413 +201,218 @@ User Prompt: ${input.trim() || 'Please analyze this ingested asset.'}`;
     handleSend(queryToSend, displayMessageText);
   };
 
-  // Demo Seeder
   const seedDemoWorkspace = async () => {
     if (seeding) return;
     setSeeding(true);
     setSeedSuccess(false);
-    
-    const demoMemories = [
-      { type: 'architecture', content: 'Use MongoDB Atlas' },
-      { type: 'coding_standard', content: 'Use JWT Authentication' },
-      { type: 'team_preference', content: 'Use Tailwind CSS' },
-      { type: 'architecture', content: 'Use Express.js' },
-    ];
 
     try {
-      // Create all demo memories in parallel
-      await Promise.all(
-        demoMemories.map((m) => createMemory(m.type, m.content))
-      );
-      
+      await Promise.all(demoMemories.map((memory) => createMemory(memory.type, memory.content)));
       setSeedSuccess(true);
-      // Refresh count
       const mems = await getMemories();
       setStoredCount(mems.count || 0);
-      
-      // Clear success indicator after 3 seconds
-      setTimeout(() => setSeedSuccess(false), 3000);
+      window.setTimeout(() => setSeedSuccess(false), 3000);
     } catch (e) {
       console.error('Seeding error:', e);
-      alert('Failed to seed demo workspace. Is the backend running?');
+      setBackendStatus('offline');
     } finally {
       setSeeding(false);
     }
   };
 
-  // Interactive Demo Scenario Prompts
-  const demoScenarios = [
-    'What database are we using?',
-    'Create signup API',
-    'Create login API',
-    'What authentication method are we using?',
-  ];
+  const isOffline = backendStatus === 'offline';
+  const successPercent = retrievedCount > 0 ? 100 : 0;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#09090e] text-white">
-      {/* Main Grid Workspace */}
-      <div className="relative z-10 flex flex-1 flex-col lg:grid lg:grid-cols-4 overflow-hidden">
-        {/* Chat Area (3 columns on desktop) */}
-        <div className="flex flex-col lg:col-span-3 h-full border-r border-white/5 overflow-hidden relative">
-          
-          {/* Chat Header */}
-          <header className="flex h-14 items-center justify-between border-b border-white/5 bg-[#09090e]/80 backdrop-blur-sm px-6 shrink-0 z-10 sticky top-0">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                 <Settings size={16} />
-              </div>
-              <span className="text-sm font-semibold tracking-widest text-gray-300">AGENT ENGINEERING WORKSPACE</span>
+    <div className="mf-app-surface flex h-full min-h-0 flex-col overflow-hidden text-white">
+      <div className="mf-system-status h-[38px] shrink-0">
+        <Sparkles size={18} className="text-rose-300" />
+        <span className="font-black text-slate-200">SYSTEM STATUS:</span>
+        <span className="min-w-0 flex-1 truncate text-slate-300">
+          {isOffline ? `Unable to connect to MemoryForge backend on ${API_BASE_URL}.` : backendStatus === 'checking' ? 'Checking MemoryForge backend connection...' : 'MemoryForge backend connected.'}
+        </span>
+        <button onClick={loadInitialData} className="ml-auto flex items-center gap-2 text-[14px] font-black uppercase tracking-wide text-indigo-200 hover:text-white">
+          <RotateCcw size={18} />
+          Retry Connection
+        </button>
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px] max-[1500px]:grid-cols-1">
+        <section className="flex min-w-0 flex-col border-r border-white/10">
+          <header className="mf-workspace-header h-[74px] shrink-0 px-8">
+            <div className="flex items-center gap-4">
+              <div className="mf-small-icon"><Settings size={20} /></div>
+              <span className="text-[21px] font-black uppercase tracking-wide text-slate-300">Agent Engineering Workspace</span>
             </div>
-            
-            {/* Action Bar */}
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-5">
               <button
                 onClick={seedDemoWorkspace}
-                disabled={seeding || backendStatus === 'offline'}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${
-                  seedSuccess
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]'
-                    : 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 transition-all'
-                } disabled:opacity-50`}
+                disabled={seeding || isOffline}
+                className={`mf-load-button ${seedSuccess ? 'border-emerald-300/45 text-emerald-200' : ''}`}
               >
-                {seeding ? (
-                  <RefreshCw size={12} className="animate-spin" />
-                ) : seedSuccess ? (
-                  <Check size={12} />
-                ) : (
-                  <Sparkles size={12} />
-                )}
-                <span>{seedSuccess ? 'Workspace Loaded!' : 'Load Demo Workspace'}</span>
+                {seeding ? <RefreshCw size={22} className="animate-spin" /> : seedSuccess ? <Check size={22} /> : <Cuboid size={22} />}
+                <span>{seedSuccess ? 'Workspace Loaded' : 'Load Demo Workspace'}</span>
               </button>
 
-              <div className="flex items-center gap-2 border-l border-white/5 pl-3">
-                <span className={`relative inline-flex h-2 w-2 rounded-full ${
-                  backendStatus === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse'
-                }`}>
-                  {backendStatus === 'online' && (
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 animate-ping opacity-75" />
-                  )}
-                </span>
-                <span className={`text-[10px] font-bold uppercase tracking-widest hidden sm:inline ${
-                  backendStatus === 'online' ? 'text-emerald-400' : 'text-red-400'
-                }`}>
-                  {backendStatus === 'online' ? 'Backend Live' : 'Backend Offline'}
+              <div className="flex items-center gap-3">
+                <span className="mf-offline-light" />
+                <span className={`text-[17px] font-black uppercase tracking-wide ${isOffline ? 'text-slate-400' : 'text-emerald-300'}`}>
+                  {isOffline ? 'Backend Offline' : backendStatus === 'checking' ? 'Checking Backend' : 'Backend Live'}
                 </span>
               </div>
             </div>
           </header>
 
-          {/* Messages view */}
-          <div className="flex-1 overflow-hidden flex flex-col pb-36">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
             <ChatWindow messages={messages} loading={loading} />
-          </div>
 
-          {/* Bottom Input Area */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#09090e] via-[#09090e] to-transparent z-20">
-            <form onSubmit={handleFormSubmit} className="max-w-4xl mx-auto flex flex-col items-center">
-              <div className="w-full bg-[#13131f] border border-white/10 rounded-xl p-2.5 flex flex-col gap-2 transition-all">
-                
-                 {/* Staged File Thumbnail Row (visible if a file is staged) */}
-                 {stagedFile && (
-                   <div className="flex flex-col gap-2 px-2 mb-2">
-                     <div className="flex items-center gap-3">
-                       {/* Thumbnail/Icon */}
-                       <div className="relative w-12 h-12 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col items-center justify-center overflow-hidden shrink-0">
-                         {stagedFile.status === 'uploading' ? (
-                           <div className="w-5 h-5 rounded-full border-2 border-slate-600 border-t-white animate-spin" />
-                         ) : stagedFile.status === 'error' ? (
-                           <div className="text-rose-500">
-                             <AlertCircle size={20} />
-                           </div>
-                         ) : (
-                           <div className="flex flex-col items-center justify-center">
-                             {stagedFile.type?.startsWith('image/') ? (
-                               <Image size={18} className="text-emerald-400" />
-                             ) : stagedFile.name?.endsWith('.zip') ? (
-                               <FolderArchive size={18} className="text-brand-300" />
-                             ) : (
-                               <FileText size={18} className="text-blue-400" />
-                             )}
-                             <span className="text-[8px] text-slate-400 font-medium truncate max-w-[40px] mt-1 px-1">
-                               {stagedFile.name}
-                             </span>
-                           </div>
-                         )}
-                         
-                         {/* Close button */}
-                         <button
-                           type="button"
-                           onClick={() => {
-                             setStagedFile(null);
-                             setUploadingFile(false);
-                           }}
-                           className="absolute -top-0.5 -right-0.5 h-[18px] w-[18px] bg-slate-950 border border-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white cursor-pointer z-20 transition-all shadow-md"
-                         >
-                           <X size={10} />
-                         </button>
-                       </div>
- 
-                       {/* Status / Tag Info */}
-                       {stagedFile.status === 'ready' && (
-                         <div className="flex flex-col justify-center">
-                           <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full w-fit">
-                             <Check size={12} />
-                             <span>Upload Successful</span>
-                           </div>
-                           {stagedFile.ocrStatus === 'partial_success' && (
-                             <span className="text-2xs text-amber-400 mt-1 font-medium">
-                               Image processed with limited analysis available.
-                             </span>
-                           )}
-                         </div>
-                       )}
- 
-                       {stagedFile.status === 'error' && (
-                         <div className="flex flex-col justify-center">
-                           <span className="text-xs text-rose-450 font-semibold">
-                             Upload Failed
-                           </span>
-                           <span className="text-2xs text-rose-500 mt-0.5 max-w-md truncate">
-                             {stagedFile.error}
-                           </span>
-                         </div>
-                       )}
- 
-                       {stagedFile.status === 'uploading' && (
-                         <div className="flex items-center text-xs text-slate-400 font-medium">
-                           Processing and ingesting asset...
-                         </div>
-                       )}
-                     </div>
- 
-                     {/* Collapsible Image Analysis Panel */}
-                     {stagedFile.status === 'ready' && stagedFile.type?.startsWith('image/') && (
-                       <div className="mt-2 border-t border-slate-800/60 pt-2 w-full text-left">
-                         <details className="group bg-slate-900/30 border border-slate-900 rounded-xl p-3" open>
-                           <summary className="flex items-center justify-between text-xs font-bold text-slate-300 hover:text-white cursor-pointer select-none">
-                             <span className="flex items-center gap-1.5 uppercase tracking-wider text-2xs">
-                               <Sparkles size={12} className="text-emerald-400" />
-                               Image Analysis Details
-                             </span>
-                             <span className="text-slate-500 group-open:rotate-180 transition-transform duration-200 text-3xs">
-                               ▼
-                             </span>
-                           </summary>
-                           <div className="mt-3 space-y-4 pl-1 pr-1 max-h-60 overflow-y-auto">
-                             {/* Extracted Text */}
-                             {stagedFile.extractedText ? (
-                               <div className="space-y-1">
-                                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Extracted Text</span>
-                                 <div className="bg-slate-950/80 border border-slate-900/80 rounded-lg p-2.5 text-2xs text-slate-300 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto select-text">
-                                   {stagedFile.extractedText}
-                                 </div>
-                               </div>
-                             ) : null}
- 
-                             {/* Summary */}
-                             <div className="space-y-1">
-                               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Summary</span>
-                               <p className="text-2xs text-slate-300 leading-relaxed font-sans">
-                                 {stagedFile.summary}
-                               </p>
-                             </div>
- 
-                             {/* Detected Technologies */}
-                             {stagedFile.technologies && stagedFile.technologies.length > 0 ? (
-                               <div className="space-y-1.5">
-                                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Detected Technologies</span>
-                                 <div className="flex flex-wrap gap-1">
-                                   {stagedFile.technologies.map((t, idx) => (
-                                     <span key={idx} className="bg-slate-950 border border-slate-900 text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded-md">
-                                       {t}
-                                     </span>
-                                   ))}
-                                 </div>
-                               </div>
-                             ) : null}
- 
-                             {/* Generated Memories */}
-                             {stagedFile.memories && stagedFile.memories.length > 0 ? (
-                               <div className="space-y-1.5">
-                                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Generated Memories</span>
-                                 <ul className="list-none space-y-1">
-                                   {stagedFile.memories.map((m, idx) => (
-                                     <li key={idx} className="flex items-start gap-1.5 text-2xs text-slate-300">
-                                       <span className="text-emerald-500 font-bold shrink-0">🧠</span>
-                                       <span>
-                                         <strong className="text-slate-400 font-semibold">[{m.type}]</strong> {m.content}
-                                       </span>
-                                     </li>
-                                   ))}
-                                 </ul>
-                               </div>
-                             ) : null}
-                           </div>
-                         </details>
-                       </div>
-                     )}
-                   </div>
-                 )}
- 
-                 {/* Input Controls Row */}
-                 <div className="flex items-center gap-3">
-                   {/* File Upload Trigger */}
-                   <button
-                     type="button"
-                     onClick={() => fileInputRef.current?.click()}
-                     disabled={loading || uploadingFile || backendStatus === 'offline'}
-                     className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer shrink-0"
-                     title="Upload and ingest files/code/projects"
-                   >
-                     <Plus size={18} />
-                   </button>
-                   <input
-                     type="file"
-                     ref={fileInputRef}
-                     onChange={handleFileUploadChange}
-                     style={{ display: 'none' }}
-                     multiple
-                     webkitdirectory=""
-                     accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
-                   />
- 
-                   {/* Main Prompt Input */}
-                   <input
-                     type="text"
-                     value={input}
-                     onChange={(e) => setInput(e.target.value)}
-                     disabled={loading || uploadingFile || backendStatus === 'offline'}
-                     placeholder={
-                       backendStatus === 'offline'
-                         ? 'Reconnect to backend to send prompts...'
-                         : 'Ask the agent to inspect, edit, debug, or improve your project'
-                     }
-                     className="flex-1 bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-600 focus:outline-none disabled:opacity-50"
-                   />
-                   
-                   {/* Voice & Submit Actions */}
-                   <div className="flex items-center gap-1 shrink-0">
-                     <button
-                       type="button"
-                       onClick={() => alert("Voice transcription feature is coming soon!")}
-                       disabled={loading || uploadingFile || backendStatus === 'offline'}
-                       className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-                     >
-                       <Mic size={18} />
-                     </button>
- 
-                     <button
-                       type="submit"
-                       disabled={loading || uploadingFile || backendStatus === 'offline' || (!input.trim() && !stagedFile)}
-                       className="p-2 text-purple-400 bg-purple-500/10 rounded-lg hover:bg-purple-500/20 hover:text-purple-300 transition-colors disabled:opacity-30 disabled:hover:bg-purple-500/10 cursor-pointer"
-                     >
-                       <ArrowUp size={18} />
-                     </button>
-                   </div>
-                 </div>
- 
-              </div>
-              <div className="text-center text-[10px] text-gray-500 mt-3 font-sans selection:bg-transparent">
-                MemoryForge can make mistakes. Verify critical logic and code structures.
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#030611] via-[#030611]/96 to-transparent" />
+            <form onSubmit={handleFormSubmit} className="absolute inset-x-0 bottom-0 z-20 px-10 pb-5">
+              <div className="mx-auto max-w-[1220px]">
+                {stagedFile && <StagedFile stagedFile={stagedFile} onClear={() => setStagedFile(null)} />}
+
+                <div className="mf-prompt-bar">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading || uploadingFile || isOffline}
+                    className="mf-round-action"
+                    title="Upload files"
+                  >
+                    <Plus size={27} />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileUploadChange}
+                    className="hidden"
+                    multiple
+                    webkitdirectory=""
+                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
+                  />
+
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={loading || uploadingFile || isOffline}
+                    placeholder={isOffline ? 'Reconnect to backend to send prompts...' : 'Ask MemoryForge to inspect, edit, debug, or improve your project'}
+                    className="min-w-0 flex-1 bg-transparent text-[20px] font-medium text-slate-200 outline-none placeholder:text-slate-500 disabled:opacity-65"
+                  />
+
+                  <div className="mf-input-actions">
+                    <button type="button" disabled={loading || uploadingFile || isOffline} className="mf-action-icon" title="Voice input">
+                      <Mic size={25} />
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading || uploadingFile || isOffline || (!input.trim() && !stagedFile)}
+                      className="mf-action-icon text-fuchsia-300 disabled:opacity-35"
+                      title="Send prompt"
+                    >
+                      <ArrowRight size={25} />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-center text-[13px] font-medium text-slate-500">
+                  MemoryForge can make mistakes. Verify critical logic and code structures.
+                </p>
               </div>
             </form>
           </div>
-        </div>
+        </section>
 
-        {/* Sidebar Controls & Memory Panel (1 column on desktop) */}
-        <aside className="w-85 flex flex-col border-l border-white/5 bg-[#09090e] p-4 gap-4 overflow-y-auto shrink-0 h-full">
-          
-          {/* 1. Live Memory Influence Panel */}
-          {latestMemories.length === 0 ? (
-            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-8 flex flex-col items-center justify-center text-center min-h-[160px] select-none">
-              <Database size={24} className="text-gray-600 mb-3" />
-              <p className="text-xs text-gray-500">No memory context retrieved for this prompt.</p>
-            </div>
-          ) : (
-            <div className="flex-1 min-h-0 flex flex-col">
+        <aside className="mf-right-rail flex min-h-0 flex-col gap-7 overflow-y-auto p-6 max-[1500px]:hidden">
+          <div className="mf-memory-empty min-h-[142px]">
+            {latestMemories.length === 0 ? (
+              <>
+                <Database size={34} className="text-slate-500" />
+                <p>No memory context retrieved for this prompt.</p>
+              </>
+            ) : (
               <MemoryPanel memories={latestMemories} />
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* 2. Success Metrics */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 shrink-0">
-            <h3 className="text-xs font-semibold flex items-center gap-2 mb-4 text-gray-300">
-              <Database size={14} className="text-indigo-400" /> DEMO SUCCESS METRICS
-            </h3>
-            <div className="grid grid-cols-3 gap-2">
-              {/* Metric Box */}
-              <div className="bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col items-center">
-                <span className="text-[10px] text-gray-500 mb-1 select-none">STORED</span>
-                <span className="text-lg font-bold text-white font-mono">{storedCount}</span>
-              </div>
-              <div className="bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col items-center">
-                <span className="text-[10px] text-gray-500 mb-1 select-none">RECALLS</span>
-                <span className="text-lg font-bold text-indigo-400 font-mono">{retrievedCount}</span>
-              </div>
-              <div className="bg-black/30 border border-white/5 rounded-lg p-3 flex flex-col items-center justify-between">
-                <span className="text-[10px] text-gray-500 mb-1 select-none">SUCCESS %</span>
-                {/* Gauge */}
-                <div className="relative w-12 h-6 mt-1 flex items-center justify-center">
-                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 50">
-                    <path d="M 15 45 A 35 35 0 0 1 85 45" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
-                    <path d="M 15 45 A 35 35 0 0 1 85 45" fill="none" stroke="url(#success-gauge-gradient)" strokeWidth="12" strokeLinecap="round" 
-                      strokeDasharray="110" 
-                      strokeDashoffset={110 - (110 * (retrievedCount > 0 ? 100 : 0)) / 100} 
-                    />
-                    <defs>
-                      <linearGradient id="success-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#6366f1" />
-                        <stop offset="100%" stopColor="#10b981" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="text-[9px] font-bold text-indigo-300 mt-2 font-mono z-10">{retrievedCount > 0 ? '100%' : '0%'}</div>
+          <Panel title="Demo Success Metrics" icon={Package} className="mt-auto">
+            <div className="grid grid-cols-3 gap-3">
+              <MetricBox label="Stored" value={storedCount} />
+              <MetricBox label="Recalls" value={retrievedCount} accent />
+              <div className="mf-metric-box">
+                <span>Success %</span>
+                <div className="relative mt-2 h-12 w-20">
+                  <CircleGauge className="absolute inset-0 h-full w-full text-slate-600" strokeWidth={1.8} />
+                  <div className="absolute bottom-1 left-1/2 h-9 w-1 origin-bottom -translate-x-1/2 rounded-full bg-slate-300" style={{ transform: `translateX(-50%) rotate(${successPercent ? 24 : -55}deg)` }} />
                 </div>
               </div>
             </div>
-          </div>
+          </Panel>
 
-          {/* 3. Scenario Prompts */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 flex-1 flex flex-col min-h-0">
-            <h3 className="text-xs font-semibold flex items-center gap-2 mb-4 text-gray-300">
-              <Play size={14} className="text-emerald-400" /> DEMO SCENARIO PROMPTS
-            </h3>
-            <div className="space-y-2 overflow-y-auto flex-1 pr-1 font-mono">
-              {demoScenarios.map((scenario, index) => (
+          <Panel title="Demo Scenario Prompts" icon={Play}>
+            <div className="space-y-3 font-mono">
+              {demoScenarios.map((scenario) => (
                 <button
-                  key={index}
+                  key={scenario}
                   onClick={() => handleSend(scenario)}
-                  disabled={loading || backendStatus === 'offline'}
-                  className="w-full flex items-center justify-between p-3 rounded-lg border border-white/5 bg-black/20 hover:bg-white/5 hover:border-white/10 transition-all text-[11px] text-gray-400 text-left disabled:opacity-50 cursor-pointer"
+                  disabled={loading || isOffline}
+                  className="mf-scenario-row"
                 >
-                  <span className="truncate pr-2">{scenario}</span>
-                  <span className="text-gray-600">&gt;</span>
+                  <span className="truncate">{scenario}</span>
+                  <ChevronRight size={20} />
                 </button>
               ))}
             </div>
-          </div>
+          </Panel>
         </aside>
       </div>
     </div>
   );
 };
 
-// Helper chevron icon
-const ChevronRightIcon = (props) => (
-  <svg
-    {...props}
-    xmlns="http://www.w3.org/2000/svg"
-    width="12"
-    height="12"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="m9 18 6-6-6-6" />
-  </svg>
-);
+function StagedFile({ stagedFile, onClear }) {
+  const Icon = stagedFile.type?.startsWith('image/') ? Image : stagedFile.name?.endsWith('.zip') ? FolderArchive : FileText;
+
+  return (
+    <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-[#11172a]/90 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.32)]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-black/25 text-cyan-200">
+        {stagedFile.status === 'uploading' ? <RefreshCw size={19} className="animate-spin" /> : <Icon size={20} />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-white">{stagedFile.name}</p>
+        <p className={`text-xs ${stagedFile.status === 'error' ? 'text-rose-300' : 'text-slate-400'}`}>
+          {stagedFile.status === 'ready' ? 'Ready to send' : stagedFile.status === 'uploading' ? 'Processing asset...' : stagedFile.error}
+        </p>
+      </div>
+      <button type="button" onClick={onClear} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white">
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+
+function Panel({ title, icon: Icon, className = '', children }) {
+  return (
+    <section className={`mf-panel ${className}`}>
+      <h2 className="mf-panel-title">
+        <Icon size={20} />
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function MetricBox({ label, value, accent = false }) {
+  return (
+    <div className="mf-metric-box">
+      <span>{label}</span>
+      <strong className={accent ? 'text-[#8d89ff]' : ''}>{value}</strong>
+    </div>
+  );
+}
 
 export default ChatPage;
+
+
