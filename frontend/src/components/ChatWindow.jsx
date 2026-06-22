@@ -18,28 +18,28 @@ const ChatWindow = ({ messages = [], loading = false }) => {
 
   if (messages.length === 0) {
     return (
-      <div className="mf-hero-stage flex-1 overflow-y-auto px-10 pb-40 pt-8 text-center select-none">
+      <div className="mf-hero-stage h-full min-h-0 flex-1 overflow-y-auto px-8 pb-36 pt-5 text-center select-none">
         <div className="mx-auto flex max-w-6xl flex-col items-center">
-          <div className="relative flex h-[245px] w-full items-center justify-center overflow-visible">
+          <div className="mf-hero-visual relative flex w-full items-center justify-center overflow-visible">
             <div className="mf-network-field" />
             <div className="mf-orbit mf-orbit-a" />
             <div className="mf-orbit mf-orbit-b" />
-            <img src={heroImage} alt="MemoryForge system cube" className="relative z-10 h-[215px] w-[270px] object-contain drop-shadow-[0_0_42px_rgba(116,153,255,0.55)]" />
+            <img src={heroImage} alt="MemoryForge system cube" className="relative z-10 h-[180px] w-[230px] object-contain drop-shadow-[0_0_42px_rgba(116,153,255,0.55)]" />
           </div>
 
-          <h1 className="mt-1 text-[64px] font-black leading-[1.03] tracking-normal text-white drop-shadow-[0_6px_22px_rgba(0,0,0,0.65)] max-xl:text-5xl max-md:text-4xl">
+          <h1 className="mt-0 text-[56px] font-black leading-[1.02] tracking-normal text-white drop-shadow-[0_6px_22px_rgba(0,0,0,0.65)] max-[1400px]:text-5xl max-md:text-4xl">
             Build AI Systems
-            <span className="mt-5 block bg-gradient-to-r from-[#a4adff] via-[#c7b3ff] to-[#80edf0] bg-clip-text text-transparent">
+            <span className="mt-3 block bg-gradient-to-r from-[#a4adff] via-[#c7b3ff] to-[#80edf0] bg-clip-text text-transparent">
               With Persistent Memory
             </span>
           </h1>
 
-          <p className="mt-9 max-w-[860px] text-[21px] font-medium leading-[1.6] text-slate-400 max-md:text-base">
+          <p className="mt-6 max-w-[860px] text-[19px] font-medium leading-[1.5] text-slate-400 max-md:text-base">
             MemoryForge empowers AI engineers with long-term memory, architecture retention,
             contextual reasoning, and intelligent retrieval across projects and conversations.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-5">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
             {featurePills.map((pill) => {
               const Icon = pill.icon;
               return (
@@ -51,14 +51,14 @@ const ChatWindow = ({ messages = [], loading = false }) => {
             })}
           </div>
 
-          <div className="mt-14 grid w-full grid-cols-2 gap-7 text-left max-lg:grid-cols-1">
+          <div className="mt-8 grid w-full grid-cols-2 gap-5 text-left max-lg:grid-cols-1">
             <div className="mf-feature-card">
               <div className="relative z-10 max-w-[70%]">
-                <div className="mb-5 flex items-center gap-3 text-[17px] font-black uppercase tracking-wide text-white">
+                <div className="mb-3 flex items-center gap-3 text-[16px] font-black uppercase tracking-wide text-white">
                   <BrainCircuit size={23} className="text-violet-300" />
                   Seed Preferences
                 </div>
-                <p className="text-[17px] leading-relaxed text-slate-400">
+                <p className="text-[15px] leading-relaxed text-slate-400">
                   Store architecture decisions and coding standards that your AI assistant can remember and apply later.
                 </p>
               </div>
@@ -67,11 +67,11 @@ const ChatWindow = ({ messages = [], loading = false }) => {
 
             <div className="mf-feature-card">
               <div className="relative z-10 max-w-[72%]">
-                <div className="mb-5 flex items-center gap-3 text-[17px] font-black uppercase tracking-wide text-white">
+                <div className="mb-3 flex items-center gap-3 text-[16px] font-black uppercase tracking-wide text-white">
                   <Database size={23} className="text-teal-300" />
                   Persistent Retrieval
                 </div>
-                <p className="text-[17px] leading-relaxed text-slate-400">
+                <p className="text-[15px] leading-relaxed text-slate-400">
                   Retrieve prior project knowledge, architecture decisions, and technical context instantly.
                 </p>
               </div>
@@ -84,7 +84,7 @@ const ChatWindow = ({ messages = [], loading = false }) => {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
+    <div className="h-full min-h-0 flex-1 overflow-y-auto px-8 py-6 space-y-4">
       {messages.map((msg, index) => (
         <MessageBubble key={index} role={msg.role} content={msg.content} />
       ))}

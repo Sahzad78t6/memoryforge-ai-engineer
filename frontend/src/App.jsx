@@ -38,8 +38,8 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <Router>
-      <div className="h-screen w-screen overflow-hidden bg-[#030611] text-slate-100 antialiased selection:bg-violet-500/25">
-        <div className="flex h-full w-full overflow-hidden">
+      <div className="h-dvh w-full overflow-hidden bg-[#030611] text-slate-100 antialiased selection:bg-violet-500/25">
+        <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
           <Sidebar />
           <main className="min-w-0 flex-1 overflow-hidden">
             <Routes>

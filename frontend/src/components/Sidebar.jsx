@@ -56,7 +56,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="md:hidden flex h-14 items-center justify-between border-b border-white/10 bg-[#111529] px-4 shrink-0 w-full z-40">
+      <div className="md:hidden flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-[#111529] px-4 w-full z-40">
         <div className="flex items-center gap-3">
           <div className="mf-logo-mark h-9 w-9">
             <BrainCircuit size={19} />
@@ -69,7 +69,7 @@ export default function Sidebar() {
       </div>
 
       <aside
-        className={`mf-sidebar fixed inset-y-0 left-0 z-50 flex w-[340px] shrink-0 flex-col p-6 transition-transform duration-300 md:relative md:translate-x-0 ${
+        className={`mf-sidebar fixed inset-y-0 left-0 z-50 flex h-full w-[340px] shrink-0 flex-col p-6 transition-transform duration-300 md:relative md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

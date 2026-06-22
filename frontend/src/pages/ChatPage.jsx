@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ChatWindow from '../components/ChatWindow';
 import MemoryPanel from '../components/MemoryPanel';
+import { useBackendStatus } from '../hooks/useBackendStatus';
 import {
-  API_BASE_URL,
   createMemory,
   getChatHistory,
-  getHealth,
   getMemories,
   sendChatMessage,
   uploadFileDoc,
@@ -29,7 +28,6 @@ import {
   RefreshCw,
   RotateCcw,
   Settings,
-  Sparkles,
   X,
 } from 'lucide-react';
 
@@ -54,19 +52,24 @@ const ChatPage = () => {
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
-  const [backendStatus, setBackendStatus] = useState('checking');
+  const {
+    status: backendStatus,
+    isOffline,
+    isChecking,
+    isOnline,
+    apiBaseUrl,
+    checkBackend,
+    markOffline,
+    markOnline,
+  } = useBackendStatus();
   const [storedCount, setStoredCount] = useState(0);
   const [retrievedCount, setRetrievedCount] = useState(0);
   const [stagedFile, setStagedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef(null);
 
-  const loadInitialData = async () => {
+  const loadWorkspaceData = async () => {
     try {
-      setBackendStatus('checking');
-      await getHealth();
-      setBackendStatus('online');
-
       const mems = await getMemories();
       setStoredCount(mems.count || 0);
 
@@ -84,13 +87,22 @@ const ChatPage = () => {
         console.error('Failed to load chat history:', historyErr);
       }
     } catch (e) {
-      setBackendStatus('offline');
+      markOffline();
+    }
+  };
+
+  const loadInitialData = async () => {
+    const connectionStatus = await checkBackend();
+    if (connectionStatus === 'online') {
+      await loadWorkspaceData();
     }
   };
 
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    if (isOnline) {
+      loadWorkspaceData();
+    }
+  }, [isOnline]);
 
   const handleFileUploadChange = async (e) => {
     if (!e.target.files?.[0]) return;
@@ -164,13 +176,13 @@ const ChatPage = () => {
 
       const mems = await getMemories();
       setStoredCount(mems.count || 0);
-      setBackendStatus('online');
+      markOnline();
     } catch (error) {
       console.error('Chat error:', error);
-      setBackendStatus('offline');
+      markOffline();
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: `Failed to connect to the backend server. Please check that the API is running on ${API_BASE_URL} and try again.` },
+        { role: 'assistant', content: `Failed to connect to the backend server. Please check that the API is running on ${apiBaseUrl} and try again.` },
       ]);
     } finally {
       setLoading(false);
@@ -214,35 +226,42 @@ const ChatPage = () => {
       window.setTimeout(() => setSeedSuccess(false), 3000);
     } catch (e) {
       console.error('Seeding error:', e);
-      setBackendStatus('offline');
+      markOffline();
     } finally {
       setSeeding(false);
     }
   };
 
-  const isOffline = backendStatus === 'offline';
+  const backendLabel = isOffline ? 'Backend Offline' : isChecking ? 'Checking Backend' : 'Backend Live';
   const successPercent = retrievedCount > 0 ? 100 : 0;
 
   return (
     <div className="mf-app-surface flex h-full min-h-0 flex-col overflow-hidden text-white">
-      <div className="mf-system-status h-[38px] shrink-0">
-        <Sparkles size={18} className="text-rose-300" />
-        <span className="font-black text-slate-200">SYSTEM STATUS:</span>
-        <span className="min-w-0 flex-1 truncate text-slate-300">
-          {isOffline ? `Unable to connect to MemoryForge backend on ${API_BASE_URL}.` : backendStatus === 'checking' ? 'Checking MemoryForge backend connection...' : 'MemoryForge backend connected.'}
-        </span>
-        <button onClick={loadInitialData} className="ml-auto flex items-center gap-2 text-[14px] font-black uppercase tracking-wide text-indigo-200 hover:text-white">
-          <RotateCcw size={18} />
-          Retry Connection
-        </button>
-      </div>
+      {isOffline && (
+        <div className="mf-system-status mf-system-status-offline h-[38px] shrink-0">
+          <span className={`mf-status-spark ${backendStatus}`} aria-hidden="true" />
+          <span className="font-black text-slate-200">SYSTEM STATUS:</span>
+          <span className="min-w-0 flex-1 truncate text-slate-300">
+            Unable to connect to MemoryForge backend on {apiBaseUrl}.
+          </span>
+          <button
+            type="button"
+            onClick={loadInitialData}
+            disabled={isChecking}
+            className="ml-auto flex items-center gap-2 text-[14px] font-black uppercase tracking-wide text-indigo-200 hover:text-white disabled:opacity-50"
+          >
+            <RotateCcw size={18} className={isChecking ? 'animate-spin' : ''} />
+            Retry Connection
+          </button>
+        </div>
+      )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px] max-[1500px]:grid-cols-1">
-        <section className="flex min-w-0 flex-col border-r border-white/10">
-          <header className="mf-workspace-header h-[74px] shrink-0 px-8">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_390px] max-[1024px]:grid-cols-1">
+        <section className="flex min-h-0 min-w-0 flex-col border-r border-white/10">
+          <header className="mf-workspace-header h-[74px] shrink-0 px-7">
             <div className="flex items-center gap-4">
               <div className="mf-small-icon"><Settings size={20} /></div>
-              <span className="text-[21px] font-black uppercase tracking-wide text-slate-300">Agent Engineering Workspace</span>
+              <span className="text-[21px] font-black uppercase tracking-wide text-slate-300 max-[1350px]:text-[18px]">Agent Engineering Workspace</span>
             </div>
 
             <div className="flex items-center gap-5">
@@ -256,19 +275,19 @@ const ChatPage = () => {
               </button>
 
               <div className="flex items-center gap-3">
-                <span className="mf-offline-light" />
-                <span className={`text-[17px] font-black uppercase tracking-wide ${isOffline ? 'text-slate-400' : 'text-emerald-300'}`}>
-                  {isOffline ? 'Backend Offline' : backendStatus === 'checking' ? 'Checking Backend' : 'Backend Live'}
+                <span className={`mf-backend-light ${backendStatus}`} title={backendLabel} />
+                <span className={`text-[15px] font-black uppercase tracking-[0.08em] ${isOffline ? 'text-rose-300' : isChecking ? 'text-slate-400' : 'text-emerald-300'}`}>
+                  {backendLabel}
                 </span>
               </div>
             </div>
           </header>
 
-          <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <ChatWindow messages={messages} loading={loading} />
 
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#030611] via-[#030611]/96 to-transparent" />
-            <form onSubmit={handleFormSubmit} className="absolute inset-x-0 bottom-0 z-20 px-10 pb-5">
+            <form onSubmit={handleFormSubmit} className="absolute inset-x-0 bottom-0 z-20 px-8 pb-4">
               <div className="mx-auto max-w-[1220px]">
                 {stagedFile && <StagedFile stagedFile={stagedFile} onClear={() => setStagedFile(null)} />}
 
@@ -324,7 +343,7 @@ const ChatPage = () => {
           </div>
         </section>
 
-        <aside className="mf-right-rail flex min-h-0 flex-col gap-7 overflow-y-auto p-6 max-[1500px]:hidden">
+        <aside className="mf-right-rail flex min-h-0 flex-col gap-5 overflow-y-auto p-5 max-[1024px]:hidden">
           <div className="mf-memory-empty min-h-[142px]">
             {latestMemories.length === 0 ? (
               <>
