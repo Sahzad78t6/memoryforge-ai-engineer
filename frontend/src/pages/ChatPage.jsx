@@ -68,6 +68,7 @@ const ChatPage = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingError, setRecordingError] = useState('');
+  const [micSupported, setMicSupported] = useState(true);
   const fileInputRef = useRef(null);
   const directoryInputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -103,63 +104,104 @@ const ChatPage = () => {
   };
 
   useEffect(() => {
-    // Initialize Web Speech API
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
+    // Initialize Web Speech API with better error handling
+    const initializeSpeechRecognition = () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        console.warn('⚠️ Speech Recognition API not available');
+        setMicSupported(false);
+        return false;
+      }
 
-      recognitionRef.current.onstart = () => {
-        setIsRecording(true);
-        setRecordingError('');
-      };
+      try {
+        recognitionRef.current = new SpeechRecognition();
+        
+        // Configuration
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'en-US';
+        recognitionRef.current.maxAlternatives = 1;
 
-      recognitionRef.current.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
+        // Event: Recording started
+        recognitionRef.current.onstart = () => {
+          console.log('🎤 Recording started');
+          setIsRecording(true);
+          setRecordingError('');
+        };
 
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
-          } else {
-            interimTranscript += transcript;
+        // Event: Results received
+        recognitionRef.current.onresult = (event) => {
+          console.log('📝 Got results:', event.results.length);
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const transcript = event.results[i][0].transcript;
+            console.log(`[${i}] "${transcript}" (final: ${event.results[i].isFinal})`);
+            
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            }
           }
-        }
 
-        if (finalTranscript) {
-          setInput((prev) => prev + finalTranscript);
-        }
-      };
+          if (finalTranscript.trim()) {
+            console.log('✅ Appending:', finalTranscript);
+            setInput((prev) => prev + finalTranscript);
+          }
+        };
 
-      recognitionRef.current.onerror = (event) => {
-        setRecordingError(`Error: ${event.error}`);
-      };
+        // Event: Error occurred
+        recognitionRef.current.onerror = (event) => {
+          console.error('❌ Error:', event.error);
+          const errorMap = {
+            'no-speech': 'No speech detected. Try again.',
+            'audio-capture': 'No microphone found.',
+            'network': 'Network error.',
+            'not-allowed': 'Microphone permission denied. Check browser settings.',
+            'permission-denied': 'Permission denied.',
+            'service-not-allowed': 'Service not allowed.',
+          };
+          
+          const msg = errorMap[event.error] || `Error: ${event.error}`;
+          setRecordingError(msg);
+          setIsRecording(false);
+        };
 
-      recognitionRef.current.onend = () => {
-        setIsRecording(false);
-      };
-    }
+        // Event: Recording ended
+        recognitionRef.current.onend = () => {
+          console.log('⏹️ Recording ended');
+          setIsRecording(false);
+        };
+
+        setMicSupported(true);
+        console.log('✅ Speech Recognition ready');
+        return true;
+      } catch (error) {
+        console.error('❌ Init failed:', error);
+        setMicSupported(false);
+        return false;
+      }
+    };
+
+    initializeSpeechRecognition();
   }, []);
 
   const handleMicrophoneClick = () => {
-    if (!recognitionRef.current) {
-      setRecordingError('Speech recognition not supported in this browser');
+    if (!micSupported || !recognitionRef.current) {
+      setRecordingError('Microphone not supported. Use Chrome, Firefox, Safari or Edge.');
       return;
     }
 
-    if (isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-    } else {
-      setRecordingError('');
-      try {
+    try {
+      if (isRecording) {
+        recognitionRef.current.stop();
+      } else {
+        setRecordingError('');
         recognitionRef.current.start();
-      } catch (error) {
-        setRecordingError('Failed to start recording');
       }
+    } catch (error) {
+      console.error('Mic error:', error);
+      setRecordingError('Microphone error: ' + error.message);
     }
   };
 
@@ -411,7 +453,7 @@ const ChatPage = () => {
                 {stagedFile && <StagedFile stagedFile={stagedFile} onClear={() => setStagedFile(null)} />}
                 {recordingError && (
                   <div className="mb-3 rounded-lg border border-rose-300/30 bg-rose-900/20 px-4 py-2 text-sm text-rose-200 flex items-center justify-between">
-                    <span>{recordingError}</span>
+                    <span>🎤 {recordingError}</span>
                     <button
                       type="button"
                       onClick={() => setRecordingError('')}
@@ -467,9 +509,21 @@ const ChatPage = () => {
                     <button 
                       type="button" 
                       onClick={handleMicrophoneClick}
-                      disabled={loading || uploadingFile || isOffline} 
-                      className={`mf-action-icon transition-colors ${isRecording ? 'text-red-400 animate-pulse' : 'text-slate-300 hover:text-white'}`}
-                      title={isRecording ? 'Stop recording' : 'Start voice input'}
+                      disabled={loading || uploadingFile || isOffline || !micSupported} 
+                      className={`mf-action-icon transition-all ${
+                        isRecording 
+                          ? 'text-red-400 animate-pulse scale-110' 
+                          : micSupported
+                          ? 'text-slate-300 hover:text-white'
+                          : 'text-slate-600 opacity-50'
+                      }`}
+                      title={
+                        !micSupported 
+                          ? 'Microphone not supported'
+                          : isRecording 
+                          ? 'Stop recording' 
+                          : 'Start voice input'
+                      }
                     >
                       <Mic size={25} />
                     </button>
