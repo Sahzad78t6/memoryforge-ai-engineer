@@ -20,6 +20,21 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // If we're sending FormData (file uploads), remove any forced
+    // Content-Type so the browser/axios can set the correct
+    // multipart/form-data boundary header automatically.
+    try {
+      if (config && config.data && typeof FormData !== 'undefined' && config.data instanceof FormData) {
+        if (config.headers) {
+          delete config.headers['Content-Type'];
+          delete config.headers['content-type'];
+        }
+      }
+    } catch (e) {
+      // ignore any environment where FormData isn't defined
+    }
+
     return config;
   },
   (error) => {

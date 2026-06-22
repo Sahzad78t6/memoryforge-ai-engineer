@@ -122,12 +122,16 @@ const ChatPage = () => {
 
       if (isDirectoryUpload) {
         response = await uploadFileProject(selectedFiles);
+        console.debug('uploadFileProject response:', response);
       } else if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
         response = await uploadFileImage(primaryFile);
+        console.debug('uploadFileImage response:', response);
       } else if (ext === 'zip') {
         response = await uploadFileProject(primaryFile);
+        console.debug('uploadFileProject (zip) response:', response);
       } else {
         response = await uploadFileDoc(primaryFile);
+        console.debug('uploadFileDoc response:', response);
       }
 
       const analysis = response?.analysis || response || {};

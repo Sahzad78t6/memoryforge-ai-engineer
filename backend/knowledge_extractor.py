@@ -10,7 +10,17 @@ def extract_structured_knowledge(file_name: str, file_content: str, upload_type:
     Calls Groq Llama-3.3-70b-versatile in strict JSON mode to extract structured knowledge.
     """
     if not config.GROQ_API_KEY:
-        raise ValueError("GROQ_API_KEY is not configured.")
+        logger.warning("GROQ_API_KEY is not configured. Falling back to safe extractor mode for local testing.")
+        # Return a safe fallback without calling external API for local testing
+        return {
+            "summary": "[Fallback] Groq not configured — basic parsing only.",
+            "technologies": [],
+            "architecture": "Unknown",
+            "decisions": [],
+            "dependencies": [],
+            "security_findings": [],
+            "memories": []
+        }
         
     client = Groq(api_key=config.GROQ_API_KEY)
     
