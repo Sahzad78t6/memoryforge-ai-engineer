@@ -66,8 +66,11 @@ const ChatPage = () => {
   const [retrievedCount, setRetrievedCount] = useState(0);
   const [stagedFile, setStagedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingError, setRecordingError] = useState('');
   const fileInputRef = useRef(null);
   const directoryInputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   const loadWorkspaceData = async () => {
     try {
@@ -100,10 +103,65 @@ const ChatPage = () => {
   };
 
   useEffect(() => {
-    if (isOnline) {
-      loadWorkspaceData();
+    // Initialize Web Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onstart = () => {
+        setIsRecording(true);
+        setRecordingError('');
+      };
+
+      recognitionRef.current.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          setInput((prev) => prev + finalTranscript);
+        }
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        setRecordingError(`Error: ${event.error}`);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
     }
-  }, [isOnline]);
+  }, []);
+
+  const handleMicrophoneClick = () => {
+    if (!recognitionRef.current) {
+      setRecordingError('Speech recognition not supported in this browser');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      setRecordingError('');
+      try {
+        recognitionRef.current.start();
+      } catch (error) {
+        setRecordingError('Failed to start recording');
+      }
+    }
+  };
 
   const handleFileUploadChange = async (e) => {
     if (!e.target.files?.[0]) return;
@@ -351,6 +409,18 @@ const ChatPage = () => {
             <form onSubmit={handleFormSubmit} className="absolute inset-x-0 bottom-0 z-20 px-8 pb-4">
               <div className="mx-auto max-w-[1220px]">
                 {stagedFile && <StagedFile stagedFile={stagedFile} onClear={() => setStagedFile(null)} />}
+                {recordingError && (
+                  <div className="mb-3 rounded-lg border border-rose-300/30 bg-rose-900/20 px-4 py-2 text-sm text-rose-200 flex items-center justify-between">
+                    <span>{recordingError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setRecordingError('')}
+                      className="text-rose-300 hover:text-rose-100"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
 
                 <div className="mf-prompt-bar" onDrop={handleDropUpload} onDragOver={handleDragOver}>
                   <button
@@ -394,7 +464,13 @@ const ChatPage = () => {
                   />
 
                   <div className="mf-input-actions">
-                    <button type="button" disabled={loading || uploadingFile || isOffline} className="mf-action-icon" title="Voice input">
+                    <button 
+                      type="button" 
+                      onClick={handleMicrophoneClick}
+                      disabled={loading || uploadingFile || isOffline} 
+                      className={`mf-action-icon transition-colors ${isRecording ? 'text-red-400 animate-pulse' : 'text-slate-300 hover:text-white'}`}
+                      title={isRecording ? 'Stop recording' : 'Start voice input'}
+                    >
                       <Mic size={25} />
                     </button>
                     <button
