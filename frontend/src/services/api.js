@@ -5,8 +5,11 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:80
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  // Do not set a default Content-Type header here so that
+  // multipart/form-data FormData uploads can set their own
+  // Content-Type (with boundary) automatically.
   headers: {
-    'Content-Type': 'application/json',
+    Accept: 'application/json'
   },
 });
 
