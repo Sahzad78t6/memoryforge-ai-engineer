@@ -197,7 +197,7 @@ export const uploadFileDoc = async (file) => {
 export const uploadFileImage = async (file) => {
   try {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', file, file.name || 'image');
     const response = await api.post('/upload/image', formData);
     return response.data;
   } catch (error) {

@@ -67,6 +67,7 @@ const ChatPage = () => {
   const [stagedFile, setStagedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef(null);
+  const directoryInputRef = useRef(null);
 
   const loadWorkspaceData = async () => {
     try {
@@ -108,24 +109,81 @@ const ChatPage = () => {
     if (!e.target.files?.[0]) return;
 
     const selectedFiles = Array.from(e.target.files);
+    await processUploads(selectedFiles, { sourceLabel: 'Upload' });
+    e.target.value = null;
+  };
+
+  const handleDirectoryUploadChange = async (e) => {
+    if (!e.target.files?.[0]) return;
+
+    const selectedFiles = Array.from(e.target.files);
+    await processUploads(selectedFiles, { sourceLabel: 'Upload' });
+    e.target.value = null;
+  };
+
+  const handlePasteUpload = async (e) => {
+    const clipboard = e.clipboardData;
+    if (!clipboard) return;
+
+    const files = [];
+
+    // Handle image data from clipboard
+    for (let i = 0; i < clipboard.items.length; i += 1) {
+      const item = clipboard.items[i];
+      
+      // Check for image data
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      } 
+      // Check for files
+      else if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+    }
+
+    if (!files.length) return;
+
+    e.preventDefault();
+    await processUploads(files, { sourceLabel: 'Paste' });
+  };
+
+  const handleDropUpload = async (e) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer?.files || []);
+    if (!droppedFiles.length) return;
+    await processUploads(droppedFiles, { sourceLabel: 'Drop' });
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const processUploads = async (selectedFiles, { sourceLabel }) => {
     const primaryFile = selectedFiles[0];
-    const isDirectoryUpload = e.target.webkitdirectory || selectedFiles.length > 1;
-    const stagedName = isDirectoryUpload ? `${selectedFiles.length} selected files` : primaryFile.name;
+    const isDirectoryUpload = selectedFiles.length > 1;
+    const stagedName = isDirectoryUpload ? `${selectedFiles.length} files from ${sourceLabel}` : primaryFile.name || 'pasted-image';
     const totalSize = selectedFiles.reduce((total, file) => total + file.size, 0);
 
     setStagedFile({ name: stagedName, size: totalSize, type: isDirectoryUpload ? 'application/x-directory' : primaryFile.type, status: 'uploading' });
     setUploadingFile(true);
 
     try {
-      const ext = primaryFile.name.split('.').pop().toLowerCase();
+      const ext = primaryFile.name?.split('.').pop().toLowerCase() || '';
+      const isImage = primaryFile.type?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'bmp', 'tiff', 'ico', 'avif', 'heic'].includes(ext);
       let response;
 
       if (isDirectoryUpload) {
         response = await uploadFileProject(selectedFiles);
         console.debug('uploadFileProject response:', response);
-      } else if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+      } else if (isImage) {
         response = await uploadFileImage(primaryFile);
-        console.debug('uploadFileImage response:', response);
+        console.debug('uploadFileImage response:', response, { ext, type: primaryFile.type });
       } else if (ext === 'zip') {
         response = await uploadFileProject(primaryFile);
         console.debug('uploadFileProject (zip) response:', response);
@@ -160,7 +218,6 @@ const ChatPage = () => {
       });
     } finally {
       setUploadingFile(false);
-      e.target.value = null;
     }
   };
 
@@ -295,30 +352,42 @@ const ChatPage = () => {
               <div className="mx-auto max-w-[1220px]">
                 {stagedFile && <StagedFile stagedFile={stagedFile} onClear={() => setStagedFile(null)} />}
 
-                <div className="mf-prompt-bar">
+                <div className="mf-prompt-bar" onDrop={handleDropUpload} onDragOver={handleDragOver}>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading || uploadingFile || isOffline}
                     className="mf-round-action"
-                    title="Upload files"
+                    title="Upload files or images"
                   >
                     <Plus size={27} />
                   </button>
+
+                  {/* File input for regular files and images */}
                   <input
                     ref={fileInputRef}
                     type="file"
                     onChange={handleFileUploadChange}
                     className="hidden"
                     multiple
-                    webkitdirectory=""
-                    accept=".pdf,.docx,.txt,.md,.json,.zip,image/*,README,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml"
+                    accept=".pdf,.docx,.txt,.md,.json,.zip,.html,.css,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.sh,.yml,.yaml,image/*"
+                  />
+
+                  {/* Directory input for project uploads */}
+                  <input
+                    ref={directoryInputRef}
+                    type="file"
+                    onChange={handleDirectoryUploadChange}
+                    className="hidden"
+                    multiple
+                    webkitdirectory="true"
                   />
 
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
+                    onPaste={handlePasteUpload}
                     disabled={loading || uploadingFile || isOffline}
                     placeholder={isOffline ? 'Reconnect to backend to send prompts...' : 'Ask MemoryForge to inspect, edit, debug, or improve your project'}
                     className="min-w-0 flex-1 bg-transparent text-[20px] font-medium text-slate-200 outline-none placeholder:text-slate-500 disabled:opacity-65"
@@ -437,5 +506,3 @@ function MetricBox({ label, value, accent = false }) {
 }
 
 export default ChatPage;
-
-
